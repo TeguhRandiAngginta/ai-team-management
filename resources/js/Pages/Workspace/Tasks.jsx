@@ -60,14 +60,10 @@ export default function WorkspaceTasks({ workspace, project, tasks, members }) {
         if (taskId) updateTaskStatus(taskId, newStatus);
     };
 
-    // ==========================================
-    // BARIS YANG HILANG SUDAH DIKEMBALIKAN DI SINI
-    // ==========================================
     const todoTasks = tasks.filter(t => t.status === 'todo');
     const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
     const reviewTasks = tasks.filter(t => t.status === 'review');
     const doneTasks = tasks.filter(t => t.status === 'done');
-    // ==========================================
 
     const KanbanColumn = ({ title, status, taskList, headerColor, bgColor }) => (
         <div className={`${bgColor} rounded-[2rem] p-5 min-h-[500px] border border-gray-100 transition-colors flex flex-col`} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, status)}>
