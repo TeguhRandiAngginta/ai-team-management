@@ -92,6 +92,14 @@ export default function WorkspaceTasks({ workspace, project, tasks, members }) {
                             )}
                         </div>
 
+                        {/* Judul KanBan */}
+                        <div className="pr-12 mb-3">
+                            <h5 className="text-sm font-bold text-gray-800 leading-snug">{task.title}</h5>
+                            {task.description && (
+                                <p className="text-xs text-gray-500 mt-1 line-clamp-2">{task.description}</p>
+                            )}
+                        </div>
+
                         {/* Indikator Status */}
                         <div className="mt-4 pt-3 border-t border-gray-100">
                             <div className="flex items-center text-[11px] text-gray-400 font-medium">
