@@ -8,7 +8,8 @@ export default function WorkspaceDashboard({ workspace, allTasks }) {
     
     // State baru untuk mengatur tampilan widget di Overview
     const [activeWidget, setActiveWidget] = useState('overview'); // 'overview' | 'calendar' | 'analytics'
-    
+    const [aiSummary, setAiSummary] = useState('');
+    const [isGeneratingAi, setIsGeneratingAi] = useState(false);
     const [dayModal, setDayModal] = useState({ show: false, date: '', tasks: [] });
 
     const statusLabels = {
@@ -19,12 +20,9 @@ export default function WorkspaceDashboard({ workspace, allTasks }) {
         done: { label: 'Done', color: 'bg-green-400' },
         archived: { label: 'Archived', color: 'bg-gray-600' }
     };
-
     const statusOrder = ['todo', 'in_progress', 'review', 'postponed', 'done', 'archived'];
     const todayObj = new Date();
     const actualTodayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
-
-    // --- LOGIKA MESIN ANALITIK ---
     const totalTasks = Array.isArray(allTasks) ? allTasks.length : 0;
     const completedTasks = Array.isArray(allTasks) ? allTasks.filter(t => t.status === 'done' || t.status === 'archived').length : 0;
     const pendingTasks = totalTasks - completedTasks;
@@ -38,6 +36,7 @@ export default function WorkspaceDashboard({ workspace, allTasks }) {
         review: Array.isArray(allTasks) ? allTasks.filter(t => t.status === 'review').length : 0,
         postponed: Array.isArray(allTasks) ? allTasks.filter(t => t.status === 'postponed').length : 0,
     };
+
 
     // Menghitung Produktivitas dan Beban Kerja per User
     const userStats = {};
@@ -58,13 +57,24 @@ export default function WorkspaceDashboard({ workspace, allTasks }) {
         });
     }
 
-    // Top 5 Karyawan Paling Produktif (Paling banyak Selesai)
     const leaderboard = Object.values(userStats).sort((a, b) => b.done - a.done).slice(0, 5);
-    
-    // Top 5 Karyawan Beban Kerja Tertinggi (Paling banyak Tertunda)
     const workload = Object.values(userStats).sort((a, b) => b.pending - a.pending).slice(0, 5);
     const maxPending = workload.length > 0 ? workload[0].pending : 1; // Untuk rasio grafik batang
-    // -----------------------------
+    const formatAIResponse = (text) => {
+        if (!text) return { __html: '' };
+        
+        let formatted = text
+            // 1. Sapu bersih SEMUA Header (#) jadi Judul Berwarna
+            .replace(/^#{1,6}\s*(.*)$/gim, '<h4 class="text-indigo-700 font-extrabold mt-6 mb-2">$1</h4>')
+            
+            // 2. TANGKAP SEMUA BULLET (Strip, Bintang, Poin) termasuk yang menjorok/spasi
+            .replace(/^\s*[-\*•]\s+(.*)$/gim, '<li class="ml-5 list-disc marker:text-indigo-500 font-medium text-gray-700 mb-1">$1</li>')
+            
+            // 3. Rapikan teks tebal (**teks**)
+            .replace(/\*\*(.*?)\*\*/gim, '<strong class="font-extrabold text-gray-900">$1</strong>');
+            
+        return { __html: formatted };
+    };
 
     return (
         <AuthenticatedLayout header={<></>}>
@@ -140,14 +150,17 @@ export default function WorkspaceDashboard({ workspace, allTasks }) {
                                 </div>
                             </div>
 
-                            {/* KARTU AI MANAGER (PLACEHOLDER) */}
-                            <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm opacity-70 relative grayscale-[20%]">
-                                <span className="absolute top-5 right-5 bg-gray-100 text-gray-500 text-[10px] font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider">Segera Hadir</span>
-                                <div className="w-14 h-14 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-5">
+                            {/* KARTU AI MANAGER (SEKARANG HIDUP!) */}
+                            <div 
+                            onClick={() => setActiveWidget('ai')}
+                            className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl hover:border-purple-300 hover:-translate-y-1 transition-all cursor-pointer group relative">
+                                <div className="w-14 h-14 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-5 group-hover:bg-purple-600 group-hover:text-white transition-colors duration-300 shadow-sm">
                                     <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                    </div>
+                                    <h3 className="text-xl font-extrabold text-gray-900 mb-2 group-hover:text-purple-600 transition-colors">AI Manager</h3>
+                                    <p className="text-sm text-gray-500 font-medium leading-relaxed">Asisten cerdas untuk merangkum progres dan memberikan rekomendasi proyek.</p>
+                                    <div className="mt-4 flex items-center text-xs font-bold text-purple-600 gap-1 opacity-0 group-hover:opacity-100 transition-opacity">Buka Asisten <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
                                 </div>
-                                <h3 className="text-xl font-extrabold text-gray-900 mb-2">AI Manager</h3>
-                                <p className="text-sm text-gray-500 font-medium leading-relaxed">Integrasi AI cerdas untuk memprediksi keterlambatan dan membagi tugas otomatis.</p>
                             </div>
 
                         </div>
@@ -303,6 +316,73 @@ export default function WorkspaceDashboard({ workspace, allTasks }) {
                         </div>
                     </div>
                 )}
+                {/* --- HALAMAN AI MANAGER --- */}
+{activeWidget === 'ai' && (
+    <div className="px-2 pb-10 pt-4 animate-fadeIn">
+        <div className="flex justify-between items-center mb-6">
+            <h3 className="text-2xl font-extrabold text-gray-900 flex items-center gap-3">
+                <svg className="w-7 h-7 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                AI Project Manager
+            </h3>
+            <button 
+                onClick={() => setActiveWidget('overview')}
+                className="px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold rounded-xl transition-colors shadow-sm flex items-center gap-2"
+            >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                Kembali
+            </button>
+        </div>
+
+        <div className="bg-white p-6 sm:p-10 rounded-[2rem] border border-gray-100 shadow-sm text-center">
+            <div className="w-20 h-20 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+            </div>
+            <h4 className="text-xl font-extrabold text-gray-900 mb-3">Hasilkan Ringkasan Cerdas</h4>
+            <p className="text-gray-500 mb-8 max-w-xl mx-auto">AI akan menganalisis data {allTasks.length} tugas di workspace ini dan memberikan ringkasan status, mendeteksi risiko keterlambatan, serta saran langkah selanjutnya.</p>
+            
+            <button 
+                onClick={async () => {
+                    setIsGeneratingAi(true);
+                    setAiSummary('');
+                    try {
+                        const response = await window.axios.post('/api/ai/workspace-summary', { tasks: allTasks });
+                        setAiSummary(response.data.summary);
+                    } catch (error) {
+                        setAiSummary(error.response?.data?.summary || 'Terjadi kesalahan sistem saat menghubungi AI.');
+                    } finally {
+                        setIsGeneratingAi(false);
+                    }
+                }}
+                disabled={isGeneratingAi}
+                className="px-8 py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold rounded-xl shadow-lg shadow-purple-200 transition-all disabled:opacity-50 disabled:cursor-wait flex items-center justify-center gap-3 mx-auto"
+            >
+                {isGeneratingAi ? (
+                    <><span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> AI Sedang Berpikir...</>
+                ) : (
+                    <>✨ Generate AI Summary</>
+                )}
+            </button>
+
+            {/* Hasil Teks AI */}
+            {aiSummary && (
+                <div className="mt-10 p-6 sm:p-8 bg-gray-50 border border-gray-100 rounded-2xl text-left animate-fadeIn relative shadow-inner">
+                    <span className="absolute top-4 right-4 text-[10px] font-extrabold bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
+                        AI Result
+                    </span>
+                    
+                    <h5 className="font-extrabold text-gray-900 mb-6 text-xl border-b border-gray-200 pb-4">Laporan Eksekutif Proyek</h5>
+                    
+                    {/* PERUBAHAN DI SINI: Kita menggunakan formatAIResponse */}
+                    <div 
+                        className="text-sm sm:text-base text-gray-600 whitespace-pre-wrap leading-relaxed"
+                        dangerouslySetInnerHTML={formatAIResponse(aiSummary)}
+                    />
+                </div>
+            )}
+        </div>
+    </div>
+)}
 
                 {/* MODAL AGENDA HARIAN MASTER (Sama seperti sebelumnya) */}
                 {/* ... (Kode Modal DayCalendar tidak diubah, tetap ditaruh di sini agar berfungsi) ... */}

@@ -6,6 +6,7 @@ use App\Http\Controllers\WorkspaceProjectController;
 use App\Http\Controllers\WorkspaceTaskController;
 use App\Http\Controllers\ActivityLogController; 
 use App\Http\Controllers\SuperadminUserController;
+use App\Http\Controllers\AIController;
 use App\Models\Workspace;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -33,17 +34,15 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::get('/activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs');
-
-    // --- TAMBAHAN ROUTE NOTIFIKASI ALARM ---
     Route::post('/notifications/{id}/read', function($id) {
         $notification = auth()->user()->notifications()->findOrFail($id);
         $notification->markAsRead();
         return back();
     })->name('notifications.read');
-    // ---------------------------------------
 
     Route::get('/superadmin/users', [SuperadminUserController::class, 'index'])->name('superadmin.users');
     Route::post('/superadmin/users', [SuperadminUserController::class, 'store'])->name('superadmin.users.store');
+    Route::post('/api/ai/workspace-summary', [AIController::class, 'generateWorkspaceSummary'])->name('api.ai.workspace_summary');
 
     Route::middleware('workspace.role')->prefix('workspaces/{workspace}')->group(function () {
         
