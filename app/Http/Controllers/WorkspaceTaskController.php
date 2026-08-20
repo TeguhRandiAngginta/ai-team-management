@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
+use App\Notifications\TaskNotification;
+use Illuminate\Support\Facades\Notification;
 use App\Models\Project;
 use App\Models\Workspace;
 use App\Models\ActivityLog;
@@ -35,7 +38,7 @@ class WorkspaceTaskController extends Controller
         }
 
         // Tambahkan 'files' agar data lampiran ter-load di frontend
-        $tasks = $project->tasks()->with(['assignees', 'author', 'files'])->get();
+        $tasks = $project->tasks()->with(['assignees', 'author', 'files', 'comments.user'])->get();
         $members = $workspace->members()->with('user')->get();
 
         return Inertia::render('Workspace/Tasks', [
@@ -85,7 +88,8 @@ class WorkspaceTaskController extends Controller
 
         if (!empty($validated['assignee_ids'])) {
             $task->assignees()->attach($validated['assignee_ids']);
-        }
+            $assignedUsers = User::whereIn('id', $validated['assignee_ids'])->get();
+            Notification::send($assignedUsers, new TaskNotification($task, 'Tugas baru untuk Anda: ' . $task->title, 'assigned'));}
         
         ActivityLog::log('created', "Membuat tugas baru: {$task->title}", $workspace->id);
         return redirect()->back();
@@ -134,6 +138,11 @@ class WorkspaceTaskController extends Controller
         }
 
         $task->update($validated);
+        // --- TAMBAHAN ALARM REVISI ---
+        if ($request->has('feedback') && isset($validated['status']) && $validated['status'] === 'in_progress') {
+            $assignedUsers = $task->assignees;
+            if ($assignedUsers->count() > 0) {
+                Notification::send($assignedUsers, new TaskNotification($task, 'Tugas ditolak! Catatan: ' . $request->feedback, 'revised')); } }
 
         // Tambahan penanganan file upload saat update/edit tugas
         if ($request->hasFile('files')) {
@@ -179,6 +188,20 @@ class WorkspaceTaskController extends Controller
         
         ActivityLog::log('deleted', "Menghapus tugas: {$taskTitle}", $workspace->id);
         
+        return redirect()->back();
+    }
+
+    public function storeComment(Request $request, Workspace $workspace, Project $project, $taskId)
+    {
+        $request->validate(['content' => 'required|string']);
+        
+        $task = $project->tasks()->findOrFail($taskId);
+        
+        $task->comments()->create([
+            'user_id' => auth()->id(),
+            'content' => $request->content
+        ]);
+
         return redirect()->back();
     }
 }

@@ -58,4 +58,9 @@ class Task extends Model
     {
         return $this->hasMany(TaskFile::class);
     }
+
+    public function comments()
+    {
+        return $this->hasMany(TaskComment::class)->latest();
+    }
 }

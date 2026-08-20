@@ -1,92 +1,213 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link } from '@inertiajs/react';
-import BackButton from '@/Components/BackButton'; // Memanggil template tombol kembali
+import { Head, Link, usePage } from '@inertiajs/react';
+import { useState } from 'react';
+import TaskCalendarView from '@/Components/Kanban/TaskCalendarView';
 
-export default function WorkspaceDashboard({ workspace }) {
+export default function WorkspaceDashboard({ workspace, allTasks }) {
+    const { user } = usePage().props.auth;
+    
+    // State untuk berganti antara tampilan Widget (Overview) dan Kalender Master
+    const [showCalendar, setShowCalendar] = useState(false);
+    
+    // State untuk Modal Agenda Harian
+    const [dayModal, setDayModal] = useState({ show: false, date: '', tasks: [] });
+
+    const statusLabels = {
+        todo: { label: 'To Do', color: 'bg-gray-400' },
+        in_progress: { label: 'In Progress', color: 'bg-blue-400' },
+        postponed: { label: 'Postponed', color: 'bg-orange-400' },
+        review: { label: 'Review', color: 'bg-yellow-400' },
+        done: { label: 'Done', color: 'bg-green-400' },
+        archived: { label: 'Archived', color: 'bg-gray-600' }
+    };
+
+    const statusOrder = ['todo', 'in_progress', 'review', 'postponed', 'done', 'archived'];
+    const todayObj = new Date();
+    const actualTodayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
+
     return (
         <AuthenticatedLayout header={<></>}>
-            <Head title={`${workspace?.name} - Overview`} />
-
-            <div className="max-w-7xl mx-auto space-y-6">
+            <Head title={`${workspace.name} - Overview`} />
+            
+            <div className="max-w-[1600px] mx-auto space-y-6">
                 
-                {/* Menggunakan Template Tombol Kembali yang baru dibuat */}
-                <BackButton href={route('dashboard')}>
-                    Kembali ke Daftar Workspace
-                </BackButton>
+                {/* Tombol Kembali (Sama seperti di halaman Tim/Proyek) */}
+                <div className="px-2">
+                    <Link href={route('dashboard')} className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-indigo-600 transition-colors">
+                        <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                        Kembali ke Daftar Workspace
+                    </Link>
+                </div>
 
-                {/* Header Section dengan Navigasi Internal */}
-                <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-center md:items-end gap-6">
-                    <div>
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 font-extrabold text-xl">
-                                {workspace?.name.charAt(0)}
-                            </div>
-                            <h2 className="text-3xl font-extrabold text-gray-900">{workspace?.name}</h2>
+                {/* --- HEADER KONSISTEN (SAMA DENGAN TIM & PROYEK) --- */}
+                <div className="bg-white p-6 sm:p-8 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-xl font-extrabold shrink-0">
+                            {workspace.name.charAt(0).toUpperCase()}
                         </div>
-                        <p className="text-gray-500 ml-15">Ruang kerja aktif untuk manajemen tim dan proyek.</p>
+                        <div>
+                            <h2 className="text-2xl font-extrabold text-gray-900">{workspace.name}</h2>
+                            <p className="text-sm text-gray-500 font-medium mt-1">Pusat komando dan ringkasan aktivitas workspace.</p>
+                        </div>
                     </div>
 
-                    {/* Navigasi Tab Modern (Pill Style) */}
-                    <div className="flex p-1 bg-gray-50 rounded-xl border border-gray-200">
-                        <span className="px-6 py-2.5 bg-white text-indigo-600 font-bold text-sm rounded-lg shadow-sm">
+                    {/* 3 TOMBOL NAVIGASI TAB SESUAI GAMBAR ANDA */}
+                    <div className="flex p-1 bg-gray-50 border border-gray-100 rounded-xl w-full lg:w-auto">
+                        <span className="px-6 py-2.5 bg-white text-indigo-600 font-bold text-sm rounded-lg shadow-sm flex-1 text-center">
                             Overview
                         </span>
-                        <Link 
-                            href={route('workspace.members', workspace.id)}
-                            className="px-6 py-2.5 text-gray-500 hover:text-indigo-600 font-bold text-sm rounded-lg transition-colors"
-                        >
+                        <Link href={route('workspace.members', workspace.id)} className="px-6 py-2.5 text-gray-500 hover:text-indigo-600 font-bold text-sm rounded-lg transition-colors flex-1 text-center">
                             Tim
                         </Link>
-                        <Link 
-                            href={route('workspace.projects', workspace.id)}
-                            className="px-6 py-2.5 text-gray-500 hover:text-indigo-600 font-bold text-sm rounded-lg transition-colors"
-                        >
+                        <Link href={route('workspace.projects', workspace.id)} className="px-6 py-2.5 text-gray-500 hover:text-indigo-600 font-bold text-sm rounded-lg transition-colors flex-1 text-center">
                             Proyek
                         </Link>
                     </div>
                 </div>
 
-                {/* Bento Grid Analytics */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* --- KONTEN HALAMAN (BERUBAH ANTARA WIDGET DAN KALENDER) --- */}
+                {!showCalendar ? (
                     
-                    {/* Kartu 1: Info Anggota */}
-                    <div className="bg-gradient-to-br from-[#55c5d1] to-[#43aab5] rounded-[2rem] p-8 text-white shadow-sm relative overflow-hidden">
-                        <div className="absolute right-[-20%] top-[-20%] w-32 h-32 bg-white/20 rounded-full blur-xl"></div>
-                        <h4 className="font-semibold text-white/80 mb-1">Status Tim</h4>
-                        <div className="flex items-end gap-3">
-                            <span className="text-5xl font-extrabold">Aktif</span>
-                        </div>
-                        <p className="mt-6 text-sm text-white/90">Buka menu Tim untuk mengelola peran dan anggota.</p>
-                    </div>
-
-                    {/* Kartu 2: Info AI (Persiapan untuk Fase 3) */}
-                    <div className="bg-[#E6E6FA] rounded-[2rem] p-8 shadow-sm relative overflow-hidden border border-purple-100">
-                        <div className="absolute right-[-10%] bottom-[-10%] w-32 h-32 bg-purple-200 rounded-full blur-xl"></div>
-                        <div className="flex justify-between items-start">
-                            <h4 className="font-semibold text-purple-800 mb-1">Insight AI</h4>
-                            <span className="bg-white/60 text-purple-600 px-3 py-1 rounded-full text-xs font-bold">Segera Hadir</span>
-                        </div>
-                        <div className="mt-4">
-                            <div className="h-2 w-full bg-purple-200 rounded-full mb-3"></div>
-                            <div className="h-2 w-2/3 bg-purple-200 rounded-full"></div>
-                        </div>
-                        <p className="mt-6 text-sm text-purple-700 font-medium">Asisten AI sedang dipersiapkan untuk workspace ini.</p>
-                    </div>
-
-                    {/* Kartu 3: Pintasan Aksi */}
-                    <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100 flex flex-col justify-center">
-                        <h4 className="font-bold text-gray-900 mb-4 text-center">Butuh tindakan cepat?</h4>
-                        <div className="space-y-3">
-                            <Link 
-                                href={route('workspace.projects', workspace.id)} 
-                                className="w-full flex items-center justify-center py-3 bg-gray-50 text-indigo-600 font-bold rounded-xl hover:bg-indigo-50 transition-colors border border-gray-100"
+                    /* KONTEN 1: MENU WIDGET OVERVIEW */
+                    <div className="px-2 pt-4 transition-all duration-300">
+                        <h3 className="text-xl font-extrabold text-gray-900 mb-4">Pusat Widget & Fitur</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            
+                            {/* KARTU BUKA KALENDER */}
+                            <div 
+                                onClick={() => setShowCalendar(true)}
+                                className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl hover:border-indigo-300 hover:-translate-y-1 transition-all cursor-pointer group relative"
                             >
-                                Kelola Papan Proyek
-                            </Link>
+                                <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-5 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300 shadow-sm">
+                                    <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                </div>
+                                <h3 className="text-xl font-extrabold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors">Kalender Global Master</h3>
+                                <p className="text-sm text-gray-500 font-medium leading-relaxed">Klik untuk membuka kalender gabungan seluruh tugas dari berbagai proyek.</p>
+                                <div className="mt-4 flex items-center text-xs font-bold text-indigo-600 gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    Buka Kalender <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                                </div>
+                            </div>
+
+                            {/* KARTU AI MANAGER */}
+                            <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm opacity-70 relative grayscale-[20%]">
+                                <span className="absolute top-5 right-5 bg-gray-100 text-gray-500 text-[10px] font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider">Segera Hadir</span>
+                                <div className="w-14 h-14 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-5">
+                                    <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                </div>
+                                <h3 className="text-xl font-extrabold text-gray-900 mb-2">AI Manager</h3>
+                                <p className="text-sm text-gray-500 font-medium leading-relaxed">Integrasi AI cerdas untuk memprediksi keterlambatan dan membagi tugas otomatis.</p>
+                            </div>
+
+                            {/* KARTU ANALITIK */}
+                            <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm opacity-70 relative grayscale-[20%]">
+                                <span className="absolute top-5 right-5 bg-gray-100 text-gray-500 text-[10px] font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider">Segera Hadir</span>
+                                <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-5">
+                                    <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                                </div>
+                                <h3 className="text-xl font-extrabold text-gray-900 mb-2">Analitik Dashboard</h3>
+                                <p className="text-sm text-gray-500 font-medium leading-relaxed">Lihat laporan produktivitas bulanan dan status beban kerja anggota tim.</p>
+                            </div>
                         </div>
                     </div>
-                </div>
 
+                ) : (
+
+                    /* KONTEN 2: TAMPILAN KALENDER GLOBAL */
+                    <div className="px-2 pb-10 transition-all duration-300">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                            <h3 className="text-2xl font-extrabold text-gray-900 flex items-center gap-3">
+                                <svg className="w-7 h-7 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                Kalender Master
+                            </h3>
+                            <button 
+                                onClick={() => setShowCalendar(false)}
+                                className="px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold rounded-xl transition-colors shadow-sm flex items-center gap-2"
+                            >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                Tutup Kalender
+                            </button>
+                        </div>
+                        
+                        <TaskCalendarView 
+                            tasks={Array.isArray(allTasks) ? allTasks : []} 
+                            onDayClick={(date, dayTasks) => setDayModal({ show: true, date, tasks: dayTasks })} 
+                            statusLabels={statusLabels} 
+                        />
+                    </div>
+                )}
+
+                {/* MODAL AGENDA HARIAN MASTER */}
+                {dayModal.show && (
+                    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto">
+                        <div className="bg-white rounded-[2rem] w-full max-w-4xl shadow-2xl relative flex flex-col max-h-[85vh] overflow-hidden">
+                            <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 shrink-0">
+                                <div>
+                                    <h3 className="text-2xl font-extrabold text-gray-900 flex items-center gap-3">
+                                        <svg className="w-8 h-8 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                        Agenda Global: {dayModal.date}
+                                    </h3>
+                                    <p className="text-gray-500 text-sm mt-1 font-medium">Total {dayModal.tasks.length} tugas ditemukan dari berbagai proyek.</p>
+                                </div>
+                                <button onClick={() => setDayModal({ show: false, date: '', tasks: [] })} className="p-2 bg-white border border-gray-200 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-50 shadow-sm transition-all"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                            </div>
+                            
+                            <div className="p-8 overflow-y-auto space-y-8 flex-1 bg-[#F8FAFC]">
+                                {dayModal.tasks.length === 0 ? (
+                                    <div className="text-center py-16">
+                                        <div className="text-6xl mb-4">🌴</div>
+                                        <p className="text-gray-500 font-bold text-lg">Tidak ada tugas pada tanggal ini.</p>
+                                    </div>
+                                ) : (
+                                    statusOrder.map(status => {
+                                        const tasksInStatus = dayModal.tasks.filter(t => t.status === status);
+                                        if (tasksInStatus.length === 0) return null;
+
+                                        return (
+                                            <div key={status} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                                                <h4 className="text-sm font-extrabold uppercase tracking-wider mb-4 flex items-center gap-2 text-gray-700 border-b border-gray-50 pb-3">
+                                                    <span className={`w-3 h-3 rounded-full ${statusLabels[status].color}`}></span>
+                                                    {statusLabels[status].label} <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md ml-1">{tasksInStatus.length}</span>
+                                                </h4>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                    {tasksInStatus.map(task => {
+                                                        const isOverdue = task.due_date && task.due_date.split('T')[0] < actualTodayStr && task.status !== 'done' && task.status !== 'archived';
+                                                        
+                                                        return (
+                                                            <Link 
+                                                                key={task.id} 
+                                                                href={route('workspace.projects.tasks', { workspace: workspace.id, project: task.project_id })}
+                                                                className={`block cursor-pointer bg-white border p-4 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-1 transition-all group ${isOverdue ? 'border-red-300 ring-2 ring-red-50' : 'border-gray-100 hover:border-indigo-300'}`}
+                                                            >
+                                                                <div className="flex items-center justify-between mb-2">
+                                                                    <div className="flex gap-1 items-center flex-wrap">
+                                                                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${task.priority === 'high' ? 'bg-red-100 text-red-700' : task.priority === 'low' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{task.priority}</span>
+                                                                        {isOverdue && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase bg-red-600 text-white animate-pulse">⚠️ Terlambat</span>}
+                                                                    </div>
+                                                                    <div className="text-[10px] font-bold text-gray-400 group-hover:text-indigo-500 flex items-center gap-1">
+                                                                        Buka <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                                                    </div>
+                                                                </div>
+                                                                <h5 className="font-bold text-gray-800 text-sm mb-1 leading-snug group-hover:text-indigo-600 transition-colors line-clamp-2">{task.title}</h5>
+                                                                <div className="flex justify-between items-center text-xs text-gray-400 mt-3 border-t border-gray-50 pt-2">
+                                                                    {task.assignees?.length > 0 ? (
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <div className="w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center text-[7px] font-bold">{task.assignees[0].name.charAt(0)}</div>
+                                                                            <span className="truncate max-w-[80px]">{task.assignees[0].name}</span>
+                                                                        </div>
+                                                                    ) : <span>Belum ditugaskan</span>}
+                                                                </div>
+                                                            </Link>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </AuthenticatedLayout>
     );

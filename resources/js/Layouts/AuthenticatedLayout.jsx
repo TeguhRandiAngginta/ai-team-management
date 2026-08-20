@@ -1,13 +1,32 @@
-import { useState } from 'react';
-import { Link, usePage } from '@inertiajs/react';
+import { useState, useRef, useEffect } from 'react';
+import { Link, router, usePage } from '@inertiajs/react';
 
 export default function Authenticated({ header, children }) {
-    const { user } = usePage().props.auth;
+    const { user, notifications } = usePage().props.auth;
     const { url } = usePage();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    
+    // State khusus untuk Dropdown Notifikasi
+    const [isNotifOpen, setIsNotifOpen] = useState(false);
+    const notifRef = useRef(null);
 
     // Fungsi kecil untuk mengecek link aktif
     const isActive = (path) => url.startsWith(path);
+    
+    const markAsRead = (id) => {
+        router.post(route('notifications.read', id), {}, { preserveScroll: true });
+    };
+
+    // Menutup dropdown notifikasi jika user klik di luar area
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (notifRef.current && !notifRef.current.contains(event.target)) {
+                setIsNotifOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     return (
         <div className="min-h-screen bg-[#F4F7FF] flex font-sans text-gray-900">
@@ -60,7 +79,6 @@ export default function Authenticated({ header, children }) {
                                 <span className="font-medium">Activity Log</span>
                             </Link>
 
-                            {/* TAMBAHKAN MENU INI */}
                             <Link 
                                 href={route('superadmin.users')} 
                                 className={`flex items-center px-4 py-3.5 rounded-2xl transition-all duration-200 group ${isActive('/superadmin/users') ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'text-gray-500 hover:bg-gray-50 hover:text-indigo-600'}`}
@@ -76,7 +94,6 @@ export default function Authenticated({ header, children }) {
 
                 {/* Profile Footer */}
                 <div className="p-4 border-t border-gray-50 mt-auto">
-                    {/* Settings sekarang mengarah ke Profil */}
                     <Link 
                         href={route('profile.edit')} 
                         className={`flex items-center px-4 py-3.5 rounded-2xl transition-all duration-200 group ${isActive('/profile') ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'text-gray-500 hover:bg-gray-50 hover:text-indigo-600'}`}
@@ -118,19 +135,67 @@ export default function Authenticated({ header, children }) {
                             </svg>
                         </button>
                         
-                        {/* Page Header Content (Di-inject dari Pages) */}
+                        {/* Page Header Content */}
                         <div className="flex-1 flex justify-between items-center ml-4 lg:ml-0">
                             {header}
                         </div>
 
                         {/* Top Right Action Icons */}
                         <div className="hidden md:flex items-center space-x-4">
-                            <button className="p-2.5 rounded-full bg-white shadow-sm text-gray-400 hover:text-indigo-600 transition-colors relative">
-                                <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                </svg>
-                            </button>
+                            
+                            {/* --- INTEGRASI DROPDOWN NOTIFIKASI --- */}
+                            <div className="relative" ref={notifRef}>
+                                <button 
+                                    onClick={() => setIsNotifOpen(!isNotifOpen)}
+                                    className="p-2.5 rounded-full bg-white shadow-sm text-gray-400 hover:text-indigo-600 transition-colors relative focus:outline-none"
+                                >
+                                    {/* Jika ada notif, tampilkan badge merah bergetar */}
+                                    {notifications?.length > 0 && (
+                                        <span className="absolute top-0 right-0 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-red-500 rounded-full border-2 border-white animate-pulse">
+                                            {notifications.length}
+                                        </span>
+                                    )}
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                    </svg>
+                                </button>
+
+                                {/* Panel Dropdown Muncul Saat Lonceng Diklik */}
+                                {isNotifOpen && (
+                                    <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50">
+                                        <div className="px-4 py-3 font-extrabold text-sm text-gray-800 bg-gray-50 border-b border-gray-100">
+                                            Notifikasi Terbaru
+                                        </div>
+                                        {notifications?.length > 0 ? (
+                                            <div className="max-h-72 overflow-y-auto">
+                                                {notifications.map(notif => (
+                                                    <div key={notif.id} className="block px-4 py-4 border-b border-gray-50 hover:bg-indigo-50/50 transition-colors">
+                                                        <div className="flex items-start gap-3">
+                                                            <div className={`w-2 h-2 mt-1.5 rounded-full shrink-0 ${notif.data.type === 'assigned' ? 'bg-blue-500' : 'bg-red-500'}`}></div>
+                                                            <div>
+                                                                <p className="text-xs font-bold text-gray-900 leading-tight">{notif.data.title || 'Pemberitahuan'}</p>
+                                                                <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">{notif.data.message}</p>
+                                                                <button 
+                                                                    onClick={(e) => { e.preventDefault(); markAsRead(notif.id); }} 
+                                                                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 mt-2 hover:underline focus:outline-none"
+                                                                >
+                                                                    Tandai sudah dibaca ✓
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="px-4 py-8 text-xs font-medium text-center text-gray-400">
+                                                Tidak ada notifikasi baru.
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            {/* -------------------------------------- */}
+
                         </div>
                     </div>
                 </header>
