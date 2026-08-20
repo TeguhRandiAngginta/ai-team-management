@@ -2,16 +2,34 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Concerns\HasUuids; // TAMBAHKAN IMPORT INI
 
 class Task extends Model
 {
-    use HasUuids, SoftDeletes;
+    // TAMBAHKAN HasUuids DI SINI
+    use HasFactory, HasUuids; 
 
     protected $fillable = [
-        'project_id', 'assignee_id', 'title', 'description', 'status', 'priority', 'due_date'
+        'project_id',
+        'workspace_id',
+        'author_id',
+        'title',
+        'description',
+        'feedback',
+        'status',
+        'priority',
+        'tags',
+        'start_date',
+        'due_date',
+        'completed_at',
+    ];
+
+    protected $casts = [
+        'start_date' => 'date',
+        'due_date' => 'date',
+        'completed_at' => 'datetime',
     ];
 
     public function project()
@@ -19,8 +37,30 @@ class Task extends Model
         return $this->belongsTo(Project::class);
     }
 
-    public function assignee()
+    public function workspace()
     {
-        return $this->belongsTo(User::class, 'assignee_id');
+        return $this->belongsTo(Workspace::class);
+    }
+
+    // Relasi Pembuat Tugas
+    public function author()
+    {
+        return $this->belongsTo(User::class, 'author_id');
+    }
+
+    // Relasi Banyak Anggota (Multiple Assignees)
+    public function assignees()
+    {
+        return $this->belongsToMany(User::class, 'task_user');
+    }
+    
+    public function files()
+    {
+        return $this->hasMany(TaskFile::class);
+    }
+
+    public function comments()
+    {
+        return $this->hasMany(TaskComment::class)->latest();
     }
 }

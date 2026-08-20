@@ -28,26 +28,34 @@ Route::get('/dashboard', function () {
     ]);
 })->middleware(['auth', 'verified'])->name('dashboard');
 
-// Rute yang memerlukan autentikasi umum
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::get('/activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs');
 
-    // =========================================================================
-    // RUTE SUPERADMIN USER DIPINDAHKAN KESINI (DI LUAR WORKSPACE PREFIX)
-    // =========================================================================
+    // --- TAMBAHAN ROUTE NOTIFIKASI ALARM ---
+    Route::post('/notifications/{id}/read', function($id) {
+        $notification = auth()->user()->notifications()->findOrFail($id);
+        $notification->markAsRead();
+        return back();
+    })->name('notifications.read');
+    // ---------------------------------------
+
     Route::get('/superadmin/users', [SuperadminUserController::class, 'index'])->name('superadmin.users');
     Route::post('/superadmin/users', [SuperadminUserController::class, 'store'])->name('superadmin.users.store');
 
-    // Rute di dalam Workspace tertentu (Dilindungi oleh Middleware Workspace Role)
     Route::middleware('workspace.role')->prefix('workspaces/{workspace}')->group(function () {
         
-        // Overview Workspace
         Route::get('/', function (Workspace $workspace) {
+            $workspace->load(['projects.tasks' => function($query) {
+                $query->with(['assignees', 'author']);
+            }]);
+            $allTasks = $workspace->projects->flatMap->tasks;
+
             return Inertia::render('Workspace/Dashboard', [
-                'workspace' => $workspace
+                'workspace' => $workspace,
+                'allTasks' => $allTasks
             ]);
         })->name('workspace.dashboard');
 
@@ -67,6 +75,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/projects/{project}/tasks', [WorkspaceTaskController::class, 'store'])->name('workspace.projects.tasks.store');
         Route::patch('/projects/{project}/tasks/{task}', [WorkspaceTaskController::class, 'update'])->name('workspace.projects.tasks.update');
         Route::delete('/projects/{project}/tasks/{task}', [WorkspaceTaskController::class, 'destroy'])->name('workspace.projects.tasks.destroy');
+
+        Route::post('/projects/{project}/tasks/{task}/comments', [WorkspaceTaskController::class, 'storeComment'])->name('workspace.projects.tasks.comments.store');
     });
 });
 
