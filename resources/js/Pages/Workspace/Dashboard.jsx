@@ -6,10 +6,9 @@ import TaskCalendarView from '@/Components/Kanban/TaskCalendarView';
 export default function WorkspaceDashboard({ workspace, allTasks }) {
     const { user } = usePage().props.auth;
     
-    // State untuk berganti antara tampilan Widget (Overview) dan Kalender Master
-    const [showCalendar, setShowCalendar] = useState(false);
+    // State baru untuk mengatur tampilan widget di Overview
+    const [activeWidget, setActiveWidget] = useState('overview'); // 'overview' | 'calendar' | 'analytics'
     
-    // State untuk Modal Agenda Harian
     const [dayModal, setDayModal] = useState({ show: false, date: '', tasks: [] });
 
     const statusLabels = {
@@ -25,13 +24,54 @@ export default function WorkspaceDashboard({ workspace, allTasks }) {
     const todayObj = new Date();
     const actualTodayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
 
+    // --- LOGIKA MESIN ANALITIK ---
+    const totalTasks = Array.isArray(allTasks) ? allTasks.length : 0;
+    const completedTasks = Array.isArray(allTasks) ? allTasks.filter(t => t.status === 'done' || t.status === 'archived').length : 0;
+    const pendingTasks = totalTasks - completedTasks;
+    const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+    
+    const overdueTasks = Array.isArray(allTasks) ? allTasks.filter(t => t.due_date && t.due_date.split('T')[0] < actualTodayStr && t.status !== 'done' && t.status !== 'archived').length : 0;
+
+    const statusCounts = {
+        todo: Array.isArray(allTasks) ? allTasks.filter(t => t.status === 'todo').length : 0,
+        in_progress: Array.isArray(allTasks) ? allTasks.filter(t => t.status === 'in_progress').length : 0,
+        review: Array.isArray(allTasks) ? allTasks.filter(t => t.status === 'review').length : 0,
+        postponed: Array.isArray(allTasks) ? allTasks.filter(t => t.status === 'postponed').length : 0,
+    };
+
+    // Menghitung Produktivitas dan Beban Kerja per User
+    const userStats = {};
+    if (Array.isArray(allTasks)) {
+        allTasks.forEach(task => {
+            if (task.assignees && task.assignees.length > 0) {
+                task.assignees.forEach(assignee => {
+                    if (!userStats[assignee.id]) {
+                        userStats[assignee.id] = { name: assignee.name, done: 0, pending: 0, avatar: assignee.name.charAt(0).toUpperCase() };
+                    }
+                    if (task.status === 'done' || task.status === 'archived') {
+                        userStats[assignee.id].done += 1;
+                    } else {
+                        userStats[assignee.id].pending += 1;
+                    }
+                });
+            }
+        });
+    }
+
+    // Top 5 Karyawan Paling Produktif (Paling banyak Selesai)
+    const leaderboard = Object.values(userStats).sort((a, b) => b.done - a.done).slice(0, 5);
+    
+    // Top 5 Karyawan Beban Kerja Tertinggi (Paling banyak Tertunda)
+    const workload = Object.values(userStats).sort((a, b) => b.pending - a.pending).slice(0, 5);
+    const maxPending = workload.length > 0 ? workload[0].pending : 1; // Untuk rasio grafik batang
+    // -----------------------------
+
     return (
         <AuthenticatedLayout header={<></>}>
             <Head title={`${workspace.name} - Overview`} />
             
             <div className="max-w-[1600px] mx-auto space-y-6">
                 
-                {/* Tombol Kembali (Sama seperti di halaman Tim/Proyek) */}
                 <div className="px-2">
                     <Link href={route('dashboard')} className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-indigo-600 transition-colors">
                         <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
@@ -39,7 +79,7 @@ export default function WorkspaceDashboard({ workspace, allTasks }) {
                     </Link>
                 </div>
 
-                {/* --- HEADER KONSISTEN (SAMA DENGAN TIM & PROYEK) --- */}
+                {/* HEADER KONSISTEN */}
                 <div className="bg-white p-6 sm:p-8 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-xl font-extrabold shrink-0">
@@ -51,9 +91,8 @@ export default function WorkspaceDashboard({ workspace, allTasks }) {
                         </div>
                     </div>
 
-                    {/* 3 TOMBOL NAVIGASI TAB SESUAI GAMBAR ANDA */}
                     <div className="flex p-1 bg-gray-50 border border-gray-100 rounded-xl w-full lg:w-auto">
-                        <span className="px-6 py-2.5 bg-white text-indigo-600 font-bold text-sm rounded-lg shadow-sm flex-1 text-center">
+                        <span className="px-6 py-2.5 bg-white text-indigo-600 font-bold text-sm rounded-lg shadow-sm flex-1 text-center cursor-default">
                             Overview
                         </span>
                         <Link href={route('workspace.members', workspace.id)} className="px-6 py-2.5 text-gray-500 hover:text-indigo-600 font-bold text-sm rounded-lg transition-colors flex-1 text-center">
@@ -65,30 +104,43 @@ export default function WorkspaceDashboard({ workspace, allTasks }) {
                     </div>
                 </div>
 
-                {/* --- KONTEN HALAMAN (BERUBAH ANTARA WIDGET DAN KALENDER) --- */}
-                {!showCalendar ? (
-                    
-                    /* KONTEN 1: MENU WIDGET OVERVIEW */
-                    <div className="px-2 pt-4 transition-all duration-300">
+                {/* --- KONTEN BERDASARKAN WIDGET AKTIF --- */}
+                {activeWidget === 'overview' && (
+                    <div className="px-2 pt-4 transition-all duration-300 animate-fadeIn">
                         <h3 className="text-xl font-extrabold text-gray-900 mb-4">Pusat Widget & Fitur</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             
                             {/* KARTU BUKA KALENDER */}
                             <div 
-                                onClick={() => setShowCalendar(true)}
+                                onClick={() => setActiveWidget('calendar')}
                                 className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl hover:border-indigo-300 hover:-translate-y-1 transition-all cursor-pointer group relative"
                             >
                                 <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-5 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300 shadow-sm">
                                     <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                 </div>
                                 <h3 className="text-xl font-extrabold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors">Kalender Global Master</h3>
-                                <p className="text-sm text-gray-500 font-medium leading-relaxed">Klik untuk membuka kalender gabungan seluruh tugas dari berbagai proyek.</p>
+                                <p className="text-sm text-gray-500 font-medium leading-relaxed">Klik untuk melihat kalender gabungan seluruh tugas dari berbagai proyek.</p>
                                 <div className="mt-4 flex items-center text-xs font-bold text-indigo-600 gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     Buka Kalender <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
                                 </div>
                             </div>
 
-                            {/* KARTU AI MANAGER */}
+                            {/* KARTU ANALITIK (SEKARANG AKTIF!) */}
+                            <div 
+                                onClick={() => setActiveWidget('analytics')}
+                                className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl hover:border-blue-300 hover:-translate-y-1 transition-all cursor-pointer group relative"
+                            >
+                                <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-5 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300 shadow-sm">
+                                    <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                                </div>
+                                <h3 className="text-xl font-extrabold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">Analitik Dashboard</h3>
+                                <p className="text-sm text-gray-500 font-medium leading-relaxed">Lihat laporan produktivitas, grafik penyelesaian proyek, dan status beban kerja tim.</p>
+                                <div className="mt-4 flex items-center text-xs font-bold text-blue-600 gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    Lihat Grafik <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                                </div>
+                            </div>
+
+                            {/* KARTU AI MANAGER (PLACEHOLDER) */}
                             <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm opacity-70 relative grayscale-[20%]">
                                 <span className="absolute top-5 right-5 bg-gray-100 text-gray-500 text-[10px] font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider">Segera Hadir</span>
                                 <div className="w-14 h-14 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-5">
@@ -98,45 +150,162 @@ export default function WorkspaceDashboard({ workspace, allTasks }) {
                                 <p className="text-sm text-gray-500 font-medium leading-relaxed">Integrasi AI cerdas untuk memprediksi keterlambatan dan membagi tugas otomatis.</p>
                             </div>
 
-                            {/* KARTU ANALITIK */}
-                            <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm opacity-70 relative grayscale-[20%]">
-                                <span className="absolute top-5 right-5 bg-gray-100 text-gray-500 text-[10px] font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider">Segera Hadir</span>
-                                <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-5">
-                                    <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                                </div>
-                                <h3 className="text-xl font-extrabold text-gray-900 mb-2">Analitik Dashboard</h3>
-                                <p className="text-sm text-gray-500 font-medium leading-relaxed">Lihat laporan produktivitas bulanan dan status beban kerja anggota tim.</p>
-                            </div>
                         </div>
                     </div>
+                )}
 
-                ) : (
-
-                    /* KONTEN 2: TAMPILAN KALENDER GLOBAL */
-                    <div className="px-2 pb-10 transition-all duration-300">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                {/* --- HALAMAN KALENDER --- */}
+                {activeWidget === 'calendar' && (
+                    <div className="px-2 pb-10 pt-4 animate-fadeIn">
+                        <div className="flex justify-between items-center mb-6">
                             <h3 className="text-2xl font-extrabold text-gray-900 flex items-center gap-3">
                                 <svg className="w-7 h-7 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                 Kalender Master
                             </h3>
                             <button 
-                                onClick={() => setShowCalendar(false)}
+                                onClick={() => setActiveWidget('overview')}
                                 className="px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold rounded-xl transition-colors shadow-sm flex items-center gap-2"
                             >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                                Tutup Kalender
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                                Kembali
                             </button>
                         </div>
-                        
-                        <TaskCalendarView 
-                            tasks={Array.isArray(allTasks) ? allTasks : []} 
-                            onDayClick={(date, dayTasks) => setDayModal({ show: true, date, tasks: dayTasks })} 
-                            statusLabels={statusLabels} 
-                        />
+                        <TaskCalendarView tasks={Array.isArray(allTasks) ? allTasks : []} onDayClick={(date, dayTasks) => setDayModal({ show: true, date, tasks: dayTasks })} statusLabels={statusLabels} />
                     </div>
                 )}
 
-                {/* MODAL AGENDA HARIAN MASTER */}
+                {/* --- HALAMAN ANALITIK DASHBOARD (BARU!) --- */}
+                {activeWidget === 'analytics' && (
+                    <div className="px-2 pb-10 pt-4 animate-fadeIn">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-2xl font-extrabold text-gray-900 flex items-center gap-3">
+                                <svg className="w-7 h-7 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                                Laporan Analitik
+                            </h3>
+                            <button 
+                                onClick={() => setActiveWidget('overview')}
+                                className="px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold rounded-xl transition-colors shadow-sm flex items-center gap-2"
+                            >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                                Kembali
+                            </button>
+                        </div>
+
+                        {/* Top 3 Kartu Ringkasan */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                            <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-5">
+                                <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-extrabold text-2xl">{completionRate}%</div>
+                                <div>
+                                    <p className="text-gray-500 text-sm font-bold uppercase tracking-wider mb-1">Rasio Penyelesaian</p>
+                                    <p className="text-3xl font-extrabold text-gray-900">{completedTasks} <span className="text-lg text-gray-400 font-medium">/ {totalTasks} Tugas</span></p>
+                                </div>
+                            </div>
+                            <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-5">
+                                <div className="w-16 h-16 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center font-extrabold text-2xl">
+                                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                </div>
+                                <div>
+                                    <p className="text-gray-500 text-sm font-bold uppercase tracking-wider mb-1">Sedang Berjalan</p>
+                                    <p className="text-3xl font-extrabold text-gray-900">{pendingTasks} <span className="text-lg text-gray-400 font-medium">Tugas</span></p>
+                                </div>
+                            </div>
+                            <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-5">
+                                <div className="w-16 h-16 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center font-extrabold text-2xl">⚠️</div>
+                                <div>
+                                    <p className="text-red-400 text-sm font-bold uppercase tracking-wider mb-1">Terlambat (Overdue)</p>
+                                    <p className="text-3xl font-extrabold text-red-600">{overdueTasks} <span className="text-lg text-red-400 font-medium">Tugas</span></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Bar Distribusi Status */}
+                        <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-gray-100 shadow-sm mb-8">
+                            <h4 className="text-lg font-extrabold text-gray-900 mb-6">Distribusi Status Tugas Saat Ini</h4>
+                            
+                            {/* Visual Progress Bar (Berwarna) */}
+                            <div className="w-full h-8 flex rounded-full overflow-hidden shadow-inner mb-6 bg-gray-100">
+                                {statusCounts.todo > 0 && <div style={{ width: `${(statusCounts.todo / totalTasks) * 100}%` }} className="h-full bg-gray-400 border-r border-white/20" title={`To Do: ${statusCounts.todo}`}></div>}
+                                {statusCounts.in_progress > 0 && <div style={{ width: `${(statusCounts.in_progress / totalTasks) * 100}%` }} className="h-full bg-blue-400 border-r border-white/20" title={`In Progress: ${statusCounts.in_progress}`}></div>}
+                                {statusCounts.review > 0 && <div style={{ width: `${(statusCounts.review / totalTasks) * 100}%` }} className="h-full bg-yellow-400 border-r border-white/20" title={`Review: ${statusCounts.review}`}></div>}
+                                {statusCounts.postponed > 0 && <div style={{ width: `${(statusCounts.postponed / totalTasks) * 100}%` }} className="h-full bg-orange-400 border-r border-white/20" title={`Postponed: ${statusCounts.postponed}`}></div>}
+                                {completedTasks > 0 && <div style={{ width: `${(completedTasks / totalTasks) * 100}%` }} className="h-full bg-green-400" title={`Selesai: ${completedTasks}`}></div>}
+                            </div>
+                            
+                            {/* Keterangan Warna (Legend) */}
+                            <div className="flex flex-wrap items-center gap-6 text-sm font-bold text-gray-600">
+                                <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-gray-400"></span> To Do ({statusCounts.todo})</div>
+                                <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-400"></span> In Progress ({statusCounts.in_progress})</div>
+                                <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-yellow-400"></span> Review ({statusCounts.review})</div>
+                                <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-orange-400"></span> Postponed ({statusCounts.postponed})</div>
+                                <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-400"></span> Selesai ({completedTasks})</div>
+                            </div>
+                        </div>
+
+                        {/* Papan Peringkat (Leaderboard & Workload) */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            
+                            {/* 1. Leaderboard (Paling Produktif) */}
+                            <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-gray-100 shadow-sm">
+                                <h4 className="text-lg font-extrabold text-gray-900 flex items-center gap-2 mb-6">
+                                    🏆 Tim Paling Produktif
+                                </h4>
+                                <div className="space-y-5">
+                                    {leaderboard.length > 0 ? leaderboard.map((user, idx) => (
+                                        <div key={idx} className="flex items-center justify-between p-4 rounded-xl border border-gray-50 bg-gray-50/50 hover:bg-gray-50 transition-colors">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 text-white flex items-center justify-center font-bold shadow-sm">
+                                                    {user.avatar}
+                                                </div>
+                                                <span className="font-bold text-gray-800">{user.name}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-green-600 font-extrabold">
+                                                <span>{user.done}</span>
+                                                <span className="text-xs bg-green-100 px-2 py-0.5 rounded-full text-green-700">Tugas Selesai</span>
+                                            </div>
+                                        </div>
+                                    )) : (
+                                        <p className="text-gray-400 text-center italic py-4">Belum ada tugas yang diselesaikan.</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* 2. Workload (Beban Kerja Tertinggi) */}
+                            <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-gray-100 shadow-sm">
+                                <h4 className="text-lg font-extrabold text-gray-900 flex items-center gap-2 mb-6">
+                                    🏋️ Beban Kerja Anggota (Tertunda)
+                                </h4>
+                                <div className="space-y-6">
+                                    {workload.length > 0 ? workload.map((user, idx) => {
+                                        // Menghitung persentase bar relatif terhadap karyawan dengan beban tugas terbanyak
+                                        const barWidth = Math.max((user.pending / maxPending) * 100, 5); 
+                                        const isOverloaded = user.pending > 5; // Asumsi jika tugas pending > 5 = beban berat
+
+                                        return (
+                                            <div key={idx}>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="font-bold text-gray-800 text-sm">{user.name}</span>
+                                                    <span className={`text-xs font-extrabold ${isOverloaded ? 'text-red-500' : 'text-blue-600'}`}>{user.pending} Tugas</span>
+                                                </div>
+                                                <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden shadow-inner">
+                                                    <div 
+                                                        className={`h-full rounded-full transition-all duration-1000 ${isOverloaded ? 'bg-gradient-to-r from-orange-400 to-red-500' : 'bg-gradient-to-r from-blue-400 to-indigo-500'}`}
+                                                        style={{ width: `${barWidth}%` }}
+                                                    ></div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }) : (
+                                        <p className="text-gray-400 text-center italic py-4">Semua tugas telah diselesaikan!</p>
+                                    )}
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                )}
+
+                {/* MODAL AGENDA HARIAN MASTER (Sama seperti sebelumnya) */}
+                {/* ... (Kode Modal DayCalendar tidak diubah, tetap ditaruh di sini agar berfungsi) ... */}
                 {dayModal.show && (
                     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto">
                         <div className="bg-white rounded-[2rem] w-full max-w-4xl shadow-2xl relative flex flex-col max-h-[85vh] overflow-hidden">
