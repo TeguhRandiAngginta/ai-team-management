@@ -2,13 +2,20 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
 
 export default function Authenticated({ header, children }) {
+    // TAMBAHAN: Ambil global_issues dari usePage().props
     const { user, notifications } = usePage().props.auth;
+    const { global_issues, global_issues_count } = usePage().props; 
+    
     const { url } = usePage();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     
-    // State khusus untuk Dropdown Notifikasi
+    // State khusus untuk Dropdown Notifikasi (Bawaan Anda)
     const [isNotifOpen, setIsNotifOpen] = useState(false);
     const notifRef = useRef(null);
+
+    // TAMBAHAN: State khusus untuk Dropdown Issue (Kendala)
+    const [isIssueOpen, setIsIssueOpen] = useState(false);
+    const issueRef = useRef(null);
 
     // Fungsi kecil untuk mengecek link aktif
     const isActive = (path) => url.startsWith(path);
@@ -17,11 +24,14 @@ export default function Authenticated({ header, children }) {
         router.post(route('notifications.read', id), {}, { preserveScroll: true });
     };
 
-    // Menutup dropdown notifikasi jika user klik di luar area
+    // Menutup dropdown notifikasi & issue jika user klik di luar area
     useEffect(() => {
         function handleClickOutside(event) {
             if (notifRef.current && !notifRef.current.contains(event.target)) {
                 setIsNotifOpen(false);
+            }
+            if (issueRef.current && !issueRef.current.contains(event.target)) {
+                setIsIssueOpen(false);
             }
         }
         document.addEventListener("mousedown", handleClickOutside);
@@ -141,17 +151,67 @@ export default function Authenticated({ header, children }) {
                         </div>
 
                         {/* Top Right Action Icons */}
-                        <div className="hidden md:flex items-center space-x-4">
+                        <div className="hidden md:flex items-center space-x-2">
                             
-                            {/* --- INTEGRASI DROPDOWN NOTIFIKASI --- */}
+                            {/* --- 1. FITUR BARU: SIRINE KENDALA (ISSUE ALARM) --- */}
+                            {user.role !== 'karyawan' && (
+                                <div className="relative mr-1" ref={issueRef}>
+                                    <button 
+                                        onClick={() => setIsIssueOpen(!isIssueOpen)}
+                                        className="p-2.5 rounded-full bg-white shadow-sm text-gray-400 hover:text-red-600 transition-colors relative focus:outline-none"
+                                    >
+                                        {global_issues_count > 0 && (
+                                            <span className="absolute top-0 right-0 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-red-500 rounded-full border-2 border-white animate-pulse">
+                                                {global_issues_count}
+                                            </span>
+                                        )}
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                    </button>
+
+                                    {isIssueOpen && (
+                                        <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50 animate-fadeIn">
+                                            <div className="px-4 py-3 font-extrabold text-sm text-red-700 bg-red-50 border-b border-red-100 flex justify-between items-center">
+                                                <span>🚨 Pusat Kendala Proyek</span>
+                                            </div>
+                                            {global_issues_count > 0 ? (
+                                                <>
+                                                    <div className="max-h-72 overflow-y-auto p-2">
+                                                        {global_issues?.map(issue => (
+                                                            <div key={issue.id} className="block px-3 py-3 border-b border-gray-50 hover:bg-red-50/50 rounded-xl transition-colors mb-1 group">
+                                                                <h4 className="text-sm font-bold text-gray-800 line-clamp-1 group-hover:text-red-600">{issue.title}</h4>
+                                                                <p className="text-xs text-red-600 mt-1 line-clamp-2">"{issue.feedback || 'Tidak ada alasan'}"</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <div className="p-3 border-t border-gray-50 bg-gray-50">
+                                                        <Link 
+                                                            href={route('issues.index')} 
+                                                            className="block w-full py-2 text-xs font-extrabold text-center text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
+                                                        >
+                                                            Lihat Semua ({global_issues_count}) Kendala &rarr;
+                                                        </Link>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div className="px-4 py-8 text-xs font-medium text-center text-gray-400">
+                                                    Semua proyek berjalan lancar! 🎉
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            
+                            {/* --- 2. LONCENG NOTIFIKASI BAWAAN ANDA (TETAP AMAN) --- */}
                             <div className="relative" ref={notifRef}>
                                 <button 
                                     onClick={() => setIsNotifOpen(!isNotifOpen)}
                                     className="p-2.5 rounded-full bg-white shadow-sm text-gray-400 hover:text-indigo-600 transition-colors relative focus:outline-none"
                                 >
-                                    {/* Jika ada notif, tampilkan badge merah bergetar */}
                                     {notifications?.length > 0 && (
-                                        <span className="absolute top-0 right-0 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-red-500 rounded-full border-2 border-white animate-pulse">
+                                        <span className="absolute top-0 right-0 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-indigo-500 rounded-full border-2 border-white animate-pulse">
                                             {notifications.length}
                                         </span>
                                     )}
@@ -160,7 +220,7 @@ export default function Authenticated({ header, children }) {
                                     </svg>
                                 </button>
 
-                                {/* Panel Dropdown Muncul Saat Lonceng Diklik */}
+                                {/* Panel Dropdown Lonceng */}
                                 {isNotifOpen && (
                                     <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50">
                                         <div className="px-4 py-3 font-extrabold text-sm text-gray-800 bg-gray-50 border-b border-gray-100">

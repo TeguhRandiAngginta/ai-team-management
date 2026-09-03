@@ -1,7 +1,8 @@
 import React from 'react';
 import { useForm } from '@inertiajs/react';
 
-export default function TaskDetailModal({ workspace, project, task, user, statusLabels, onClose, onApprove, onReject, onEdit, onDelete }) {
+// PERHATIKAN: onReportIssue sudah ditambahkan di sini
+export default function TaskDetailModal({ workspace, project, task, user, statusLabels, onClose, onApprove, onReject, onEdit, onDelete, onReportIssue }) {
     if (!task) return null;
 
     const { data, setData, post, processing, reset } = useForm({
@@ -33,7 +34,7 @@ export default function TaskDetailModal({ workspace, project, task, user, status
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4 sm:p-6">
             <div className="bg-white rounded-[2rem] w-full max-w-5xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
                 
-                {/* HEADER - TERKUNCI (SHRINK-0) */}
+                {/* HEADER */}
                 <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 shrink-0">
                     <div>
                         <div className="flex items-center gap-2 mb-2">
@@ -47,7 +48,7 @@ export default function TaskDetailModal({ workspace, project, task, user, status
                     </button>
                 </div>
 
-                {/* BODY - BISA DI-SCROLL */}
+                {/* BODY */}
                 <div className="p-8 overflow-y-auto flex-1 grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="lg:col-span-2 flex flex-col h-full">
                         <div className="space-y-8 flex-1">
@@ -60,7 +61,7 @@ export default function TaskDetailModal({ workspace, project, task, user, status
 
                             {task.feedback && (
                                 <div>
-                                    <h4 className="text-sm font-bold text-red-400 uppercase tracking-wider mb-3 flex items-center gap-2"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg> Catatan Revisi Terakhir</h4>
+                                    <h4 className="text-sm font-bold text-red-400 uppercase tracking-wider mb-3 flex items-center gap-2"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg> Catatan / Alasan Terkendala</h4>
                                     <div className="bg-red-50 p-5 rounded-2xl border border-red-100">
                                         <p className="text-sm text-red-700 whitespace-pre-wrap">{task.feedback}</p>
                                     </div>
@@ -83,7 +84,7 @@ export default function TaskDetailModal({ workspace, project, task, user, status
                                 ) : <p className="text-sm text-gray-400 italic">Tidak ada file yang dilampirkan.</p>}
                             </div>
 
-                            {/* --- AREA DISKUSI / KOMENTAR --- */}
+                            {/* AREA DISKUSI */}
                             <div className="pt-8 mt-8 border-t border-gray-100">
                                 <h4 className="text-sm font-bold text-gray-800 tracking-wider mb-5 flex items-center gap-2">
                                     <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" /></svg>
@@ -172,16 +173,27 @@ export default function TaskDetailModal({ workspace, project, task, user, status
                             )}
                         </div>
                         
+                        {/* AKSI TUGAS (EDIT, HAPUS, & LAPOR KENDALA) */}
                         {isUserTask && task.status !== 'done' && task.status !== 'archived' && (
-                            <div className="flex gap-2">
-                                <button onClick={() => { onClose(); onEdit(task); }} className="flex-1 py-2 bg-gray-50 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200 rounded-xl text-sm font-bold text-gray-600 transition-colors">Edit Tugas</button>
-                                <button onClick={() => { onClose(); onDelete(task.id); }} className="flex-1 py-2 bg-gray-50 hover:bg-red-50 hover:text-red-600 border border-gray-200 rounded-xl text-sm font-bold text-gray-600 transition-colors">Hapus</button>
+                            <div className="space-y-3">
+                                <div className="flex gap-2">
+                                    <button onClick={() => { onClose(); onEdit(task); }} className="flex-1 py-2 bg-gray-50 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200 rounded-xl text-sm font-bold text-gray-600 transition-colors">Edit Tugas</button>
+                                    <button onClick={() => { onClose(); onDelete(task.id); }} className="flex-1 py-2 bg-gray-50 hover:bg-red-50 hover:text-red-600 border border-gray-200 rounded-xl text-sm font-bold text-gray-600 transition-colors">Hapus</button>
+                                </div>
+                                
+                                {/* --- TOMBOL LAPOR KENDALA --- */}
+                                <button 
+                                    onClick={() => onReportIssue(task)}
+                                    className="w-full py-2.5 text-sm font-extrabold text-red-600 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition-colors flex items-center justify-center gap-2 shadow-sm"
+                                >
+                                    🛑 Lapor Kendala
+                                </button>
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* FOOTER - TERKUNCI (SHRINK-0) */}
+                {/* FOOTER */}
                 {task.status === 'review' && user.role !== 'karyawan' && (
                     <div className="p-6 bg-gray-900 border-t border-gray-800 flex gap-4 shrink-0">
                         <button onClick={() => { onClose(); onApprove(task.id); }} className="flex-1 flex items-center justify-center gap-2 bg-green-500 hover:bg-green-400 text-white font-extrabold text-sm py-4 rounded-xl shadow-lg transition-all">

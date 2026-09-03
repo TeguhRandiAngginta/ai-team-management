@@ -111,7 +111,7 @@ class WorkspaceTaskController extends Controller
             if ($request->has('status')) {
                 $statusTujuan = $request->input('status');
 
-                if (in_array($statusTujuan, ['done', 'archived', 'postponed'])) {
+                if (in_array($statusTujuan, ['done', 'archived'])) {
                     return back()->withErrors(['message' => 'Karyawan hanya dapat memindahkan tugas maksimal sampai tahap Review.']);
                 }
             }
@@ -163,8 +163,21 @@ class WorkspaceTaskController extends Controller
             }
         }
 
-        if ($request->has('title')) ActivityLog::log('updated', "Memperbarui detail tugas: {$task->title}", $workspace->id);
-        elseif ($request->has('status')) ActivityLog::log('updated', "Memindahkan tugas: {$task->title} ke status " . strtoupper($task->status), $workspace->id);
+        // --- AWAL PENCATATAN LOG AKTIVITAS KHUSUS ---
+        if ($request->has('status') && $request->status === 'postponed') {
+            $alasan = $request->input('feedback', 'Tanpa alasan spesifik');
+            ActivityLog::log('updated', "🚨 MELAPORKAN KENDALA pada tugas '{$task->title}'. Alasan: {$alasan}", $workspace->id);
+        } 
+        elseif ($request->has('status') && $request->status === 'in_progress' && $task->getOriginal('status') === 'postponed') {
+            ActivityLog::log('updated', "▶️ MELANJUTKAN kembali tugas '{$task->title}' yang sebelumnya terkendala", $workspace->id);
+        }
+        elseif ($request->has('title')) {
+            ActivityLog::log('updated', "Memperbarui detail tugas: {$task->title}", $workspace->id);
+        } 
+        elseif ($request->has('status')) {
+            ActivityLog::log('updated', "Memindahkan tugas: {$task->title} ke status " . strtoupper($request->status), $workspace->id);
+        }
+        // --- AKHIR PENCATATAN LOG ---
 
         return redirect()->back();
     }

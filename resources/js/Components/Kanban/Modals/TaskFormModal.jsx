@@ -9,6 +9,10 @@ export default function TaskFormModal({ workspace, project, members, taskToEdit,
     const [isAssigneeOpen, setIsAssigneeOpen] = useState(false);
     const [isPriorityOpen, setIsPriorityOpen] = useState(false);
     const [isStatusOpen, setIsStatusOpen] = useState(false);
+    
+    const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+    const [aiRecommendation, setAiRecommendation] = useState('');
+    const [isGeneratingAssignee, setIsGeneratingAssignee] = useState(false);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -31,6 +35,66 @@ export default function TaskFormModal({ workspace, project, members, taskToEdit,
         files: []
     });
 
+    // FUNGSI BARU: Memanggil AI untuk memecah tugas (Versi Nomor Angka)
+    const handleAIBreakdown = async () => {
+        if (!data.title) {
+            alert('Silakan isi "Judul Tugas" terlebih dahulu agar AI tahu apa yang harus dipecah.');
+            return;
+        }
+
+        setIsGeneratingAi(true);
+        try {
+            const response = await window.axios.post('/api/ai/breakdown-task', {
+                title: data.title,
+                description: data.description
+            });
+
+            const subtasks = response.data.subtasks || [];
+            
+            if (subtasks.length > 0) {
+                // PERUBAHAN DI SINI: Menggunakan nomor (1., 2., 3.) tanpa tanda bintang/strip
+                const checklistText = subtasks.map((task, index) => `${index + 1}. ${task}`).join('\n');
+                
+                // Menghilangkan tanda bintang (**) di judul
+                const newDescription = data.description 
+                    ? `${data.description}\n\nLangkah Eksekusi (AI):\n${checklistText}` 
+                    : `Langkah Eksekusi (AI):\n${checklistText}`;
+                
+                setData('description', newDescription);
+            } else {
+                alert('AI gagal membuat checklist. Silakan coba lagi.');
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Terjadi kesalahan saat menghubungi server AI.');
+        } finally {
+            setIsGeneratingAi(false);
+        }
+    };
+
+    const handleAIRecommend = async () => {
+        if (!data.title) {
+            alert('Silakan isi "Judul Tugas" terlebih dahulu agar AI tahu tugas apa yang akan didelegasikan.');
+            return;
+        }
+
+        setIsGeneratingAssignee(true);
+        setAiRecommendation('');
+        
+        try {
+            const response = await window.axios.post('/api/ai/recommend-assignee', {
+                title: data.title,
+                description: data.description,
+                project_id: project.id
+            });
+            setAiRecommendation(response.data.recommendation);
+        } catch (error) {
+            setAiRecommendation('Terjadi kesalahan saat menghubungi server AI.');
+        } finally {
+            setIsGeneratingAssignee(false);
+        }
+    };
+
     const submit = (e) => {
         e.preventDefault();
         if (editMode) {
@@ -52,20 +116,42 @@ export default function TaskFormModal({ workspace, project, members, taskToEdit,
         <div className="fixed inset-0 z-[70] flex items-start justify-center bg-gray-900/60 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto">
             <div className="bg-white rounded-[2rem] p-6 w-full max-w-2xl shadow-2xl border border-gray-100 my-10 relative" ref={dropdownRef}>
                 <h3 className="text-2xl font-extrabold mb-6 text-gray-900">{editMode ? 'Edit Tugas' : 'Tugas Baru'}</h3>
+                
                 <form onSubmit={submit} className="space-y-5">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        
                         <div className="md:col-span-2">
                             <label className="block text-sm font-bold text-gray-700 mb-2">Judul Tugas</label>
-                            <input type="text" value={data.title} onChange={e => setData('title', e.target.value)} className="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none transition-all" required />
+                            <input type="text" value={data.title} onChange={e => setData('title', e.target.value)} placeholder="Contoh: Buat Modul Login Pengguna" className="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none transition-all" required />
                         </div>
+                        
                         <div className="md:col-span-2">
-                            <label className="block text-sm font-bold text-gray-700 mb-2">Deskripsi</label>
-                            <textarea value={data.description} onChange={e => setData('description', e.target.value)} rows="3" className="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"></textarea>
+                            <div className="flex justify-between items-end mb-2">
+                                <label className="block text-sm font-bold text-gray-700">Deskripsi</label>
+                                
+                                <button 
+                                    type="button" 
+                                    onClick={handleAIBreakdown} 
+                                    disabled={isGeneratingAi || !data.title}
+                                    className="px-3 py-1.5 text-xs font-extrabold text-purple-700 bg-purple-100 hover:bg-purple-200 rounded-lg transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Isi Judul Tugas terlebih dahulu untuk mengaktifkan AI"
+                                >
+                                    {isGeneratingAi ? (
+                                        <><span className="w-3 h-3 border-2 border-purple-400 border-t-purple-700 rounded-full animate-spin"></span> Berpikir...</>
+                                    ) : (
+                                        <>✨ AI Breakdown</>
+                                    )}
+                                </button>
+                            </div>
+                            
+                            <textarea value={data.description} onChange={e => setData('description', e.target.value)} rows="4" placeholder="Tulis deskripsi detail, atau klik tombol AI Breakdown di atas..." className="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"></textarea>
                         </div>
+                        
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">Kategori/Tag</label>
                             <input type="text" value={data.tags} onChange={e => setData('tags', e.target.value)} placeholder="Contoh: frontend, bugfix" className="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
                         </div>
+                        
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">Tenggat Waktu</label>
                             <input type="date" value={data.due_date} onChange={e => setData('due_date', e.target.value)} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-700 font-medium shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all cursor-pointer appearance-none outline-none" />
@@ -76,6 +162,36 @@ export default function TaskFormModal({ workspace, project, members, taskToEdit,
                             <input type="file" multiple onChange={(e) => setData('files', Array.from(e.target.files))} className="w-full text-sm text-gray-500 file:mr-4 file:py-3 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer border border-gray-200 rounded-xl bg-gray-50" />
                         </div>
                         
+                        {/* --- WIDGET AI REKOMENDASI DELEGASI --- */}
+                    <div className="mb-6 bg-indigo-50/50 border border-indigo-100 rounded-2xl p-4 transition-all">
+                        <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-sm font-extrabold text-indigo-900 flex items-center gap-2">
+                                <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                                Asisten Delegasi AI
+                            </h4>
+                            <button 
+                                type="button"
+                                onClick={handleAIRecommend}
+                                disabled={isGeneratingAssignee}
+                                className="px-4 py-2 bg-white hover:bg-indigo-50 text-indigo-600 border border-indigo-200 text-xs font-extrabold rounded-xl shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {isGeneratingAssignee ? (
+                                    <><span className="w-3 h-3 border-2 border-indigo-600/30 border-t-indigo-600 rounded-full animate-spin"></span> Menganalisis...</>
+                                ) : (
+                                    <>Tanya AI</>
+                                )}
+                            </button>
+                        </div>
+                        
+                        {aiRecommendation ? (
+                            <div className="bg-white p-4 rounded-xl border border-indigo-100 shadow-sm text-sm text-gray-700 whitespace-pre-wrap animate-fadeIn">
+                                {aiRecommendation}
+                            </div>
+                        ) : (
+                            <p className="text-xs text-indigo-400 font-medium">Bingung menugaskan ke siapa? Biarkan AI memeriksa beban kerja tim secara live.</p>
+                        )}
+                    </div>
+                    
                         <div className="relative">
                             <label className="block text-sm font-bold text-gray-700 mb-2">Penugasan</label>
                             <button type="button" onClick={() => { setIsAssigneeOpen(!isAssigneeOpen); setIsPriorityOpen(false); setIsStatusOpen(false); }} className="w-full text-left rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 px-4 py-3 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all flex justify-between items-center outline-none">
@@ -133,6 +249,7 @@ export default function TaskFormModal({ workspace, project, members, taskToEdit,
                             </div>
                         )}
                     </div>
+                    
                     <div className="mt-8 flex justify-end space-x-3 pt-6 border-t border-gray-100">
                         <button type="button" onClick={onClose} className="px-5 py-2.5 text-sm font-bold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">Batal</button>
                         <ActionBtn type="submit" disabled={processing}>{processing ? 'Menyimpan...' : (editMode ? 'Update Tugas' : 'Simpan Tugas')}</ActionBtn>
