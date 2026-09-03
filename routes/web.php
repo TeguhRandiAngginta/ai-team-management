@@ -10,6 +10,7 @@ use App\Http\Controllers\AIController;
 use App\Models\Workspace;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use App\Http\Controllers\IssueController;
 
 // Halaman utama langsung diarahkan ke login
 Route::get('/', function () {
@@ -33,7 +34,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    
     Route::get('/activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs');
+    
+    
+    Route::get('/issues-center', [IssueController::class, 'index'])->name('issues.index');
+
     Route::post('/notifications/{id}/read', function($id) {
         $notification = auth()->user()->notifications()->findOrFail($id);
         $notification->markAsRead();
@@ -43,6 +49,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/superadmin/users', [SuperadminUserController::class, 'index'])->name('superadmin.users');
     Route::post('/superadmin/users', [SuperadminUserController::class, 'store'])->name('superadmin.users.store');
     Route::post('/api/ai/workspace-summary', [AIController::class, 'generateWorkspaceSummary'])->name('api.ai.workspace_summary');
+    Route::post('/api/ai/breakdown-task', [AIController::class, 'generateTaskBreakdown'])->name('api.ai.breakdown_task');
+    Route::post('/api/ai/health-analysis', [AIController::class, 'generateHealthAnalysis'])->name('api.ai.health_analysis');
+    Route::post('/api/ai/recommend-assignee', [\App\Http\Controllers\AIController::class, 'recommendAssignee'])->name('api.ai.recommend_assignee');
+    Route::post('/api/ai/project-chat', [\App\Http\Controllers\AIController::class, 'projectChat'])->name('api.ai.project_chat');
+    Route::get('/workspaces/{workspace}/projects/{project}/files', [App\Http\Controllers\WorkspaceProjectController::class, 'files'])->name('workspace.projects.files');
 
     Route::middleware('workspace.role')->prefix('workspaces/{workspace}')->group(function () {
         
@@ -76,6 +87,8 @@ Route::middleware('auth')->group(function () {
         Route::delete('/projects/{project}/tasks/{task}', [WorkspaceTaskController::class, 'destroy'])->name('workspace.projects.tasks.destroy');
 
         Route::post('/projects/{project}/tasks/{task}/comments', [WorkspaceTaskController::class, 'storeComment'])->name('workspace.projects.tasks.comments.store');
+
+
     });
 });
 

@@ -4,37 +4,42 @@ namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use App\Models\Task; // <-- PASTIKAN BARIS INI ADA DI ATAS
 
 class HandleInertiaRequests extends Middleware
 {
-    /**
-     * The root template that is loaded on the first page visit.
-     *
-     * @var string
-     */
     protected $rootView = 'app';
 
-    /**
-     * Determine the current asset version.
-     */
-    public function version(Request $request): ?string
+    public function version(Request $request): string|null
     {
         return parent::version($request);
     }
 
-    /**
-     * Define the props that are shared by default.
-     *
-     * @return array<string, mixed>
-     */
     public function share(Request $request): array
     {
-        return [
-            ...parent::share($request),
+        $user = $request->user();
+        $globalIssues = [];
+        $issuesCount = 0;
+
+        // SISTEM HIBRIDA: Hanya Admin/Manajer yang mendapatkan data Issue
+        if ($user && $user->role !== 'karyawan') {
+            $issuesCount = Task::where('status', 'postponed')->count();
+            
+            // Ambil 5 issue terbaru untuk ditampilkan di Laci Header
+            $globalIssues = Task::where('status', 'postponed')
+                ->select('id', 'title', 'project_id', 'feedback', 'updated_at')
+                ->latest('updated_at')
+                ->take(5)
+                ->get();
+        }
+
+        return array_merge(parent::share($request), [
             'auth' => [
-                'user' => $request->user(),
-                'notifications' => $request->user() ? $request->user()->unreadNotifications()->take(5)->get() : [],
+                'user' => $user,
             ],
-        ];
+            // Kirim data issue secara global ke React
+            'global_issues' => $globalIssues,
+            'global_issues_count' => $issuesCount,
+        ]);
     }
 }

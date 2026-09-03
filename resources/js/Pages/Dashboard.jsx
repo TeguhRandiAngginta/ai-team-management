@@ -8,8 +8,8 @@ export default function Dashboard({ workspaces }) {
             
             <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-[2rem] p-8 text-white mb-8 shadow-lg">
-                    <h2 className="text-3xl font-extrabold mb-2">Halo, Selamat Datang! {UserActivation}👋</h2>
-                    <p className="text-indigo-100">Silakan pilih Workspace (Proyek Induk) yang ingin Anda kerjakan hari ini.</p>
+                    <h2 className="text-3xl font-extrabold mb-2">Halo, Selamat Datang!👋</h2>
+                    <p className="text-indigo-100">Silakan pilih Workspace yang ingin Anda kerjakan hari ini.</p>
                 </div>
 
                 <h3 className="text-xl font-extrabold text-gray-900 mb-4 px-2">Daftar Workspace Anda</h3>
