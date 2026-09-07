@@ -212,12 +212,12 @@ class AIController extends Controller
         $project = \App\Models\Project::with('workspace.members')->find($projectId);
         
         if (!$project) {
-             return response()->json(['recommendation' => 'Data proyek tidak ditemukan.']);
+            return response()->json(['recommendation' => 'Data proyek tidak ditemukan.']);
         }
         
         $members = $project->workspace->members;
         if ($members->isEmpty()) {
-             return response()->json(['recommendation' => 'Belum ada anggota tim di workspace ini.']);
+            return response()->json(['recommendation' => 'Belum ada anggota tim di workspace ini.']);
         }
 
         // 1. Kumpulkan data beban kerja nyata (Tugas Aktif) dari database
@@ -289,47 +289,55 @@ class AIController extends Controller
     public function projectChat(Request $request)
     {
         $message = $request->input('message');
-        $projectId = $request->input('project_id');
+        $projectId = $request->input('project_id'); // Bisa null jika ngobrol di luar proyek
         $history = $request->input('history', []); 
+        $user = auth()->user();
 
-        $project = \App\Models\Project::find($projectId);
-        if (!$project) {
-            return response()->json(['reply' => 'Maaf, saya tidak dapat menemukan data proyek ini.']);
+        // 1. PERBAIKAN ZONA WAKTU: Paksa menggunakan Waktu Indonesia Barat (WIB)
+        $hariIni = now()->timezone('Asia/Jakarta')->translatedFormat('l, d F Y (H:i)'); 
+
+        // 2. PERBAIKAN LOGIKA PROYEK: Dukungan Obrolan Global & Spesifik Proyek
+        if ($projectId) {
+            $project = \App\Models\Project::find($projectId);
+            $projectName = $project ? $project->name : 'Global Workspace';
+            $tasks = \App\Models\Task::with('assignees')->where('project_id', $projectId)->get();
+        } else {
+            // Jika ngobrol di luar proyek, ambil seluruh tugas user
+            $projectName = 'Global Workspace (Semua Proyek)';
+            $workspaceIds = $user->role === 'superadmin' 
+                ? \App\Models\Workspace::pluck('id') 
+                : $user->workspaceMemberships()->where('is_active', true)->pluck('workspace_id');
+                
+            $tasks = \App\Models\Task::with('assignees')->whereHas('project', function($q) use ($workspaceIds) {
+                $q->whereIn('workspace_id', $workspaceIds);
+            })->get();
         }
 
-        $user = auth()->user();
-        $hariIni = now()->translatedFormat('l, d F Y (H:i)'); 
-
-        $tasks = \App\Models\Task::with('assignees')->where('project_id', $projectId)->get();
-        
-        // PERBAIKAN: Masukkan tanggal DIBUAT (created_at) dan DIUBAH (updated_at)
         $taskSummary = $tasks->map(function($t) {
             $assignees = $t->assignees->pluck('name')->join(', ') ?: 'Belum ada';
-            $tglBuat = $t->created_at ? $t->created_at->translatedFormat('d F Y') : '-';
-            $tglUpdate = $t->updated_at ? $t->updated_at->translatedFormat('d F Y') : '-';
+            $tglBuat = $t->created_at ? $t->created_at->timezone('Asia/Jakarta')->translatedFormat('d F Y') : '-';
+            $tglUpdate = $t->updated_at ? $t->updated_at->timezone('Asia/Jakarta')->translatedFormat('d F Y') : '-';
             return "- Tugas: {$t->title} | Status: {$t->status} | PIC: {$assignees} | Dibuat: {$tglBuat} | Diubah: {$tglUpdate}";
         })->join("\n");
 
-        // PERBAIKAN TOTAL: Prompt gaya bahasa manusia (Asisten Santai Profesional)
+        // 3. PERBAIKAN PROMPT: Mengunci Acuan Waktu
         $systemPrompt = "Kamu adalah 'Naomi', rekan kerja dan asisten proyek virtual yang ramah, hangat, dan asyik. 
         
-        KONTEKS SAAT INI:
-        - Waktu sekarang: {$hariIni}
+        KONTEKS SAAT INI (ACUAN ABSOLUT):
+        - Waktu sekarang: {$hariIni} WIB
         - Lawan bicaramu: Kak {$user->name}
-        - Proyek: {$project->name}
+        - Lingkup Proyek: {$projectName}
 
-        DATA TUGAS (Rahasia sistem, jangan paste mentah-mentah):
+        DATA TUGAS:
         {$taskSummary}
 
-        ATURAN MUTLAK GAYA BAHASA & KEMAMPUAN:
-        1. Jawab seperti manusia/teman kerja. Gunakan kata 'Aku' dan panggil lawan bicara dengan 'Kak {$user->name}' atau namanya saja.
-        2. JANGAN PERNAH menyalin ulang format data mentah (misal: '[Status: todo] Modul...'). Rangkai datanya menjadi kalimat bercerita yang luwes.
-        3. Ingat memori obrolan sebelumnya untuk nyambung ngobrol.
-        4. Jika ditanya 'Tugas yang baru dibuat hari ini', cek tanggal 'Dibuat'. Jika ditanya 'dikerjakan/diubah', cek tanggal 'Diubah'.
-        5. LARANGAN KERAS: JANGAN PERNAH menggunakan kalimat bawaan seperti 'melalui pengaturan aplikasi pesan' atau berjanji 'tidak menyimpan percakapan di sistem'.
-        6. JIKA DIMINTA MENGHAPUS CHAT/INGATAN: Kamu WAJIB menjawab PERSIS seperti ini tanpa tambahan lain: 'Aku nggak bisa ngapus ingatan dari sini, Kak {$user->name}. Kakak harus klik ikon **Tong Sampah** di pojok kanan atas obrolan ini biar ingatan aku keriset ya!'";
+        ATURAN MUTLAK:
+        1. Jawab seperti manusia. Gunakan kata 'Aku' dan panggil lawan bicara dengan 'Kak {$user->name}'.
+        2. JANGAN menyalin ulang format data mentah. Rangkai datanya menjadi kalimat bercerita.
+        3. Jika ditanya waktu, hari, atau tanggal, GUNAKAN 'KONTEKS SAAT INI' ({$hariIni} WIB). Dilarang menebak atau menggunakan waktu lain.
+        4. Jika ditanya tugas hari ini, cek tanggal 'Dibuat' atau 'Diubah'.
+        5. JIKA DIMINTA MENGHAPUS CHAT: Jawab persis 'Kak {$user->name} harus klik ikon Tong Sampah di pojok kanan atas obrolan ini biar ingatan aku keriset ya!'";
 
-        // Kita batasi memori ke 12 chat terakhir agar AI tidak amnesia tapi juga tidak error kepenuhan
         $messages = [['role' => 'system', 'content' => $systemPrompt]];
         foreach (array_slice($history, -12) as $msg) {
             $messages[] = ['role' => $msg['role'], 'content' => $msg['content']];
@@ -343,13 +351,13 @@ class AIController extends Controller
             ])->timeout(30)->post(rtrim(env('MINIMAX_BASE_URL'), '/') . '/v1/chat/completions', [
                 'model' => env('MINIMAX_MODEL', 'MiniMax-Text-01'),
                 'messages' => $messages,
-                'temperature' => 0.7, // DINAIIKAN: Agar bahasa lebih bervariasi dan luwes seperti manusia
+                'temperature' => 0.4, // Diturunkan sedikit agar tidak berhalusinasi soal fakta/tanggal
             ]);
 
             if ($response->successful()) {
-                return response()->json(['reply' => $response->json()['choices'][0]['message']['content'] ?? 'Duh, aku lagi agak pusing nih. Boleh ulang pertanyaannya?']);
+                return response()->json(['reply' => $response->json()['choices'][0]['message']['content'] ?? 'Duh, aku agak bingung nih. Boleh diulang?']);
             }
-            return response()->json(['reply' => 'Maaf Kak, server aku lagi sibuk banget nih. Tunggu bentar ya.'], 500);
+            return response()->json(['reply' => 'Maaf Kak, server aku lagi sibuk banget nih.'], 500);
         } catch (\Exception $e) {
             return response()->json(['reply' => 'Yah, koneksi aku ke server terputus Kak.'], 500);
         }

@@ -55,25 +55,31 @@ export default function TaskCalendarView({ tasks, onDayClick, statusLabels }) {
     };
 
     return (
-        <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-6 min-h-[600px]">
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
-                <h3 className="text-2xl font-extrabold text-gray-900">{monthNames[month]} {year}</h3>
+        <div className="bg-white/60 dark:bg-white/5 backdrop-blur-md rounded-[2.5rem] shadow-sm border border-white/50 dark:border-white/10 p-6 sm:p-8 min-h-[600px] relative overflow-hidden group">
+            
+            {/* Pantulan Cahaya Kaca */}
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-1000 overflow-hidden rounded-[2.5rem]">
+                <div className="w-[150%] h-full bg-gradient-to-r from-transparent via-white/20 dark:via-white/5 to-transparent -skew-x-12 translate-x-[-150%] group-hover:animate-[sheen_1.5s_ease-in-out]"></div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4 relative z-10">
+                <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white drop-shadow-sm">{monthNames[month]} {year}</h3>
                 <div className="flex gap-2">
-                    <button onClick={prevMonth} className="p-2.5 px-4 bg-white border border-gray-200 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 font-bold transition-colors">&lt; Bulan Lalu</button>
-                    <button onClick={goToToday} className="px-5 py-2.5 bg-gray-900 text-white text-sm font-bold rounded-xl shadow-md hover:bg-gray-800 transition-colors">Bulan Ini</button>
-                    <button onClick={nextMonth} className="p-2.5 px-4 bg-white border border-gray-200 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 font-bold transition-colors">Bulan Depan &gt;</button>
+                    <button onClick={prevMonth} className="p-2.5 px-4 bg-white/80 dark:bg-black/20 backdrop-blur-sm border border-gray-200 dark:border-white/10 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 font-bold transition-colors outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">&lt; Bulan Lalu</button>
+                    <button onClick={goToToday} className="px-5 py-2.5 bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white text-sm font-extrabold rounded-xl shadow-md transition-colors outline-none focus:ring-2 focus:ring-indigo-500 border border-indigo-500 dark:border-indigo-400">Hari Ini</button>
+                    <button onClick={nextMonth} className="p-2.5 px-4 bg-white/80 dark:bg-black/20 backdrop-blur-sm border border-gray-200 dark:border-white/10 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 font-bold transition-colors outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">Bulan Depan &gt;</button>
                 </div>
             </div>
 
-            <div className="grid grid-cols-7 gap-2 sm:gap-4 mb-2">
+            <div className="grid grid-cols-7 gap-2 sm:gap-4 mb-3 relative z-10">
                 {dayNames.map(day => (
-                    <div key={day} className="text-center font-extrabold text-gray-400 text-[10px] sm:text-xs uppercase tracking-wider">{day}</div>
+                    <div key={day} className="text-center font-extrabold text-gray-500 dark:text-gray-400 text-[10px] sm:text-xs uppercase tracking-widest">{day}</div>
                 ))}
             </div>
 
-            <div className="grid grid-cols-7 gap-2 sm:gap-4">
+            <div className="grid grid-cols-7 gap-2 sm:gap-4 relative z-10">
                 {blanks.map(blank => (
-                    <div key={`blank-${blank}`} className="min-h-[100px] sm:min-h-[140px] bg-gray-50/50 rounded-2xl border border-dashed border-gray-200"></div>
+                    <div key={`blank-${blank}`} className="min-h-[100px] sm:min-h-[140px] bg-gray-50/30 dark:bg-white/5 rounded-2xl border border-dashed border-gray-200 dark:border-white/10 backdrop-blur-sm"></div>
                 ))}
                 
                 {days.map(day => {
@@ -84,9 +90,9 @@ export default function TaskCalendarView({ tasks, onDayClick, statusLabels }) {
                         <div 
                             key={day} 
                             onClick={() => onDayClick(formattedDate, dayTasks)}
-                            className={`min-h-[100px] sm:min-h-[140px] rounded-2xl border p-2 flex flex-col transition-all cursor-pointer hover:shadow-lg hover:-translate-y-1 ${isToday ? 'border-indigo-300 bg-indigo-50/30 ring-4 ring-indigo-50' : 'border-gray-100 bg-white hover:border-indigo-300'}`}
+                            className={`min-h-[100px] sm:min-h-[140px] rounded-2xl border p-2 flex flex-col transition-all duration-300 cursor-pointer hover:shadow-xl hover:-translate-y-1 backdrop-blur-sm ${isToday ? 'border-indigo-300 dark:border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/30 ring-2 ring-indigo-100 dark:ring-indigo-500/20' : 'border-gray-200 dark:border-white/10 bg-white/40 dark:bg-black/20 hover:border-indigo-300 dark:hover:border-indigo-400'}`}
                         >
-                            <div className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-extrabold mb-2 ${isToday ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'text-gray-700 bg-gray-50'}`}>
+                            <div className={`w-8 h-8 flex items-center justify-center rounded-xl text-sm font-extrabold mb-2 transition-colors ${isToday ? 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-md shadow-indigo-200 dark:shadow-none' : 'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-white/10'}`}>
                                 {day}
                             </div>
                             
@@ -95,19 +101,25 @@ export default function TaskCalendarView({ tasks, onDayClick, statusLabels }) {
                                     // Peringatan jika tugas ini overdue
                                     const isOverdue = task.due_date && task.due_date.split('T')[0] < actualTodayStr && task.status !== 'done' && task.status !== 'archived';
                                     
+                                    // Mengekstrak warna status agar mendukung mode gelap (contoh: bg-blue-400 menjadi dark:bg-blue-500)
+                                    const statusColorClass = statusLabels[task.status]?.color || 'bg-gray-400 dark:bg-gray-500';
+                                    const textColorClass = statusColorClass.replace('bg-', 'text-').replace('400', '700').replace('500', '300');
+                                    const borderColorClass = statusColorClass.replace('bg-', 'border-').replace('400', '200').replace('500', '800/50');
+                                    const bgColorClass = statusColorClass.replace('400', '50').replace('500', '900/20');
+
                                     return (
                                         <div 
                                             key={task.id} 
-                                            className={`flex items-center text-[10px] sm:text-[11px] font-bold px-2 py-1.5 rounded-md truncate shadow-sm ${task.status === 'done' || task.status === 'archived' ? 'opacity-50 line-through bg-gray-50 text-gray-500 border-gray-200' : `${statusLabels[task.status]?.color.replace('bg-', 'text-').replace('400', '700')} bg-white border ${statusLabels[task.status]?.color.replace('bg-', 'border-').replace('400', '200')}`}`}
+                                            className={`flex items-center text-[10px] sm:text-[11px] font-bold px-2 py-1.5 rounded-lg truncate shadow-sm transition-colors ${task.status === 'done' || task.status === 'archived' ? 'opacity-50 line-through bg-gray-50 dark:bg-white/5 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-white/10' : `${textColorClass} ${bgColorClass} border ${borderColorClass}`}`}
                                         >
-                                            {isOverdue && <span className="mr-1">⚠️</span>}
-                                            <span className="truncate">{task.title}</span>
+                                            {isOverdue && <span className="mr-1 inline-block animate-pulse">⚠️</span>}
+                                            <span className="truncate w-full">{task.title}</span>
                                         </div>
                                     )
                                 })}
                                 {dayTasks.length > 3 && (
-                                    <div className="text-[9px] font-extrabold text-gray-500 text-center py-1 bg-gray-100 rounded-md mt-0.5 shadow-sm">
-                                        + {dayTasks.length - 3} Tugas Lainnya
+                                    <div className="text-[9px] font-extrabold text-gray-500 dark:text-gray-400 text-center py-1 bg-gray-100 dark:bg-white/10 rounded-lg mt-0.5 shadow-sm">
+                                        + {dayTasks.length - 3} Tugas
                                     </div>
                                 )}
                             </div>

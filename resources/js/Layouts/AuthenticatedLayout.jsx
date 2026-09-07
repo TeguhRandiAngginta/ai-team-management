@@ -1,270 +1,204 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
+import ApplicationLogo from '@/Components/ApplicationLogo';
+import ProjectChatbot from '@/Components/Kanban/ProjectChatbot';
 
-export default function Authenticated({ header, children }) {
-    // TAMBAHAN: Ambil global_issues dari usePage().props
-    const { user, notifications } = usePage().props.auth;
-    const { global_issues, global_issues_count } = usePage().props; 
-    
+export default function AuthenticatedLayout({ header, children }) {
+    const { auth, global_issues, global_issues_count, project } = usePage().props;
+    const { user, notifications } = auth;
     const { url } = usePage();
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    
-    // State khusus untuk Dropdown Notifikasi (Bawaan Anda)
-    const [isNotifOpen, setIsNotifOpen] = useState(false);
-    const notifRef = useRef(null);
 
-    // TAMBAHAN: State khusus untuk Dropdown Issue (Kendala)
+    const [showingNavigationDropdown, setShowingNavigationDropdown] = useState(false);
+    const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
+
+    const [isNotifOpen, setIsNotifOpen] = useState(false);
     const [isIssueOpen, setIsIssueOpen] = useState(false);
+    const notifRef = useRef(null);
     const issueRef = useRef(null);
 
-    // Fungsi kecil untuk mengecek link aktif
-    const isActive = (path) => url.startsWith(path);
-    
-    const markAsRead = (id) => {
-        router.post(route('notifications.read', id), {}, { preserveScroll: true });
-    };
+    useEffect(() => {
+        if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        localStorage.setItem('theme', theme);
+    }, [theme]);
 
-    // Menutup dropdown notifikasi & issue jika user klik di luar area
+    const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
+    const isActive = (path) => url.startsWith(path);
+    const markAsRead = (id) => router.post(route('notifications.read', id), {}, { preserveScroll: true });
+
     useEffect(() => {
         function handleClickOutside(event) {
-            if (notifRef.current && !notifRef.current.contains(event.target)) {
-                setIsNotifOpen(false);
-            }
-            if (issueRef.current && !issueRef.current.contains(event.target)) {
-                setIsIssueOpen(false);
-            }
+            if (notifRef.current && !notifRef.current.contains(event.target)) setIsNotifOpen(false);
+            if (issueRef.current && !issueRef.current.contains(event.target)) setIsIssueOpen(false);
         }
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    const navItems = [
+        { name: 'Analitik Dashboard', routeName: 'dashboard', icon: '📊' },
+        { name: 'Main Workspace', routeName: 'workspace.index', icon: '🏢' }, 
+        { name: 'Kalender Global', routeName: 'calendar.index', icon: '📅' }, 
+        { name: 'AI Manager', routeName: 'ai.manager', icon: '🤖' },
+    ];
+
     return (
-        <div className="min-h-screen bg-[#F4F7FF] flex font-sans text-gray-900">
+        <div className="h-screen w-full transition-colors duration-500 ease-in-out bg-[#F4F7FF] dark:bg-[#04121b] text-gray-900 dark:text-white relative overflow-hidden flex">
             
-            {/* Mobile Overlay Background */}
-            {isSidebarOpen && (
+            {/* BACKGROUND ESTETIK LIQUID GLASS */}
+            <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/20 dark:bg-indigo-600/30 blur-[120px] rounded-full mix-blend-screen"></div>
+                <div className="absolute bottom-[-10%] right-[-5%] w-[50%] h-[50%] bg-purple-500/20 dark:bg-purple-900/30 blur-[150px] rounded-full mix-blend-screen"></div>
+            </div>
+
+            {showingNavigationDropdown && (
                 <div 
                     className="fixed inset-0 z-40 bg-gray-900/40 backdrop-blur-sm lg:hidden transition-opacity" 
-                    onClick={() => setIsSidebarOpen(false)}
+                    onClick={() => setShowingNavigationDropdown(false)}
                 ></div>
             )}
 
-            {/* Sidebar Navigation */}
-            <aside className={`fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-[4px_0_24px_rgba(0,0,0,0.02)] transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:flex flex-col rounded-r-3xl my-4 ml-4 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-[120%]'}`}>
-                
-                {/* Logo Area */}
-                <div className="h-24 flex items-center px-8">
-                    <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-xl mr-3 shadow-lg shadow-indigo-200">
-                        P
-                    </div>
-                    <span className="text-2xl font-extrabold tracking-tight text-gray-800">Persevera</span>
-                </div>
-
-                {/* Navigation Links */}
-                <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto">
-                    <div className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4 mt-2">
-                        Menu Utama
-                    </div>
+            {/* SIDEBAR KIRI */}
+            <nav className={`fixed inset-y-0 left-0 z-40 w-72 h-full shrink-0 transform transition-transform duration-300 ease-in-out lg:relative flex flex-col p-4 ${showingNavigationDropdown ? 'translate-x-0' : '-translate-x-[120%] lg:translate-x-0'}`}>
+                <div className="flex-1 flex flex-col bg-white/80 dark:bg-white/10 backdrop-blur-[26px] saturate-[118%] border border-white/40 dark:border-white/10 rounded-[2rem] shadow-[0_8px_32px_rgba(0,0,0,0.05)] overflow-hidden relative group transition-all duration-500 h-full">
                     
-                    <Link 
-                        href={route('dashboard')} 
-                        className={`flex items-center px-4 py-3.5 rounded-2xl transition-all duration-200 group ${isActive('/dashboard') ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'text-gray-500 hover:bg-gray-50 hover:text-indigo-600'}`}
-                    >
-                        <svg className={`w-5 h-5 mr-4 transition-colors ${isActive('/dashboard') ? 'text-white' : 'text-gray-400 group-hover:text-indigo-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                        </svg>
-                        <span className="font-medium">Dashboard</span>
-                    </Link>
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-1000 overflow-hidden rounded-[2rem]">
+                        <div className="w-[150%] h-full bg-gradient-to-r from-transparent via-white/40 to-transparent -skew-x-12 translate-x-[-150%] group-hover:animate-[sheen_1.5s_ease-in-out]"></div>
+                    </div>
 
-                    {/* MENU INI SEKARANG HANYA MUNCUL JIKA USER ADALAH SUPERADMIN */}
-                    {user.role === 'superadmin' && (
-                        <>
-                            <Link 
-                                href={route('activity-logs')} 
-                                className={`flex items-center px-4 py-3.5 rounded-2xl transition-all duration-200 group ${isActive('/activity-logs') ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'text-gray-500 hover:bg-gray-50 hover:text-indigo-600'}`}
-                            >
-                                <svg className={`w-5 h-5 mr-4 transition-colors ${isActive('/activity-logs') ? 'text-white' : 'text-gray-400 group-hover:text-indigo-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span className="font-medium">Activity Log</span>
+                    <div className="h-24 flex items-center px-6 border-b border-gray-200/50 dark:border-white/10 shrink-0 relative z-10">
+                        <div className="w-10 h-10 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center text-white shadow-lg shrink-0 mr-3">
+                            <ApplicationLogo className="w-6 h-6 fill-current" />
+                        </div>
+                        <div className="leading-tight">
+                            <h1 className="text-sm font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-white dark:to-indigo-200">Office</h1>
+                            <h1 className="text-sm font-extrabold tracking-tight text-gray-800 dark:text-white/90">Management</h1>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 py-6 px-4 space-y-2 overflow-y-auto hide-scrollbar relative z-10">
+                        <div className="text-[10px] font-extrabold tracking-widest text-gray-400 dark:text-gray-500 uppercase mb-4 px-4">Menu Utama</div>
+                        {navItems.map((item) => (
+                            <Link key={item.name} href={route(item.routeName)} onClick={() => setShowingNavigationDropdown(false)} className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 font-bold text-sm outline-none group ${route().current(item.routeName) ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-indigo-600 dark:hover:text-white'}`}>
+                                <span className={`text-lg transition-transform ${route().current(item.routeName) ? 'scale-110' : 'group-hover:scale-110'}`}>{item.icon}</span>
+                                {item.name}
                             </Link>
+                        ))}
+                        {user.role === 'superadmin' && (
+                            <>
+                                <div className="text-[10px] font-extrabold tracking-widest text-gray-400 dark:text-gray-500 uppercase mb-4 mt-6 px-4">Admin Area</div>
+                                <Link href={route('activity-logs')} className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 font-bold text-sm group ${route().current('activity-logs') ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-indigo-600 dark:hover:text-white'}`}>
+                                    <span className="text-lg">📜</span> Activity Log
+                                </Link>
+                                <Link href={route('superadmin.users')} className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 font-bold text-sm group ${route().current('superadmin.users') ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-indigo-600 dark:hover:text-white'}`}>
+                                    <span className="text-lg">👥</span> Manajemen User
+                                </Link>
+                            </>
+                        )}
+                    </div>
 
-                            <Link 
-                                href={route('superadmin.users')} 
-                                className={`flex items-center px-4 py-3.5 rounded-2xl transition-all duration-200 group ${isActive('/superadmin/users') ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'text-gray-500 hover:bg-gray-50 hover:text-indigo-600'}`}
-                            >
-                                <svg className={`w-5 h-5 mr-4 transition-colors ${isActive('/superadmin/users') ? 'text-white' : 'text-gray-400 group-hover:text-indigo-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                </svg>
-                                <span className="font-medium">Manajemen User</span>
-                            </Link>
-                        </>
-                    )}
-                </nav>
-
-                {/* Profile Footer */}
-                <div className="p-4 border-t border-gray-50 mt-auto">
-                    <Link 
-                        href={route('profile.edit')} 
-                        className={`flex items-center px-4 py-3.5 rounded-2xl transition-all duration-200 group ${isActive('/profile') ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'text-gray-500 hover:bg-gray-50 hover:text-indigo-600'}`}
-                    >
-                        <svg className={`w-5 h-5 mr-4 transition-colors ${isActive('/profile') ? 'text-white' : 'text-gray-400 group-hover:text-indigo-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        <span className="font-medium">Settings</span>
-                    </Link>
-                    
-                    <Link 
-                        href={route('logout')} 
-                        method="post" 
-                        as="button"
-                        className="mt-2 w-full flex items-center p-3 rounded-2xl text-red-500 hover:bg-red-50 transition-colors"
-                    >
-                        <svg className="w-5 h-5 mr-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
-                        <span className="text-sm font-medium">Log Out</span>
-                    </Link>
+                    <div className="p-4 border-t border-gray-200/50 dark:border-white/10 shrink-0 relative z-10">
+                        <div className="bg-white/50 dark:bg-black/20 rounded-2xl p-4 flex items-center justify-between border border-gray-100 dark:border-white/5">
+                            <div className="flex items-center gap-3 overflow-hidden">
+                                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 text-indigo-700 dark:text-indigo-200 flex items-center justify-center font-bold shadow-sm shrink-0">
+                                    {user.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="truncate">
+                                    <p className="text-xs font-extrabold text-gray-900 dark:text-white truncate">{user.name}</p>
+                                    <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium truncate uppercase">{user.role || 'Karyawan'}</p>
+                                </div>
+                            </div>
+                            <Link href={route('profile.edit')} className="p-2 text-gray-400 hover:text-indigo-600 dark:hover:text-white transition-colors">⚙️</Link>
+                        </div>
+                    </div>
                 </div>
-            </aside>
+            </nav>
 
-            {/* Main Content Area */}
-            <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-screen">
+            {/* PERBAIKAN Z-INDEX: Menghapus 'z-10' dari main agar overlay Drawer tidak terkurung */}
+            <main className="flex-1 flex flex-col h-full min-w-0 relative transition-all duration-500">
                 
-                {/* Header (Top Bar) */}
-                <header className="bg-transparent sticky top-0 z-30 pt-4 px-4 sm:px-6 lg:px-10">
+                {/* Header Atas */}
+                <header className="shrink-0 pt-4 px-4 sm:px-6 lg:px-10 relative z-30">
                     <div className="flex items-center justify-between h-16">
-                        {/* Hamburger Menu for Mobile */}
-                        <button 
-                            onClick={() => setIsSidebarOpen(true)} 
-                            className="p-2 rounded-xl bg-white shadow-sm text-gray-500 hover:text-indigo-600 focus:outline-none lg:hidden"
-                        >
-                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-                            </svg>
-                        </button>
                         
-                        {/* Page Header Content */}
-                        <div className="flex-1 flex justify-between items-center ml-4 lg:ml-0">
-                            {header}
+                        <div className="flex items-center gap-4">
+                            <button onClick={() => setShowingNavigationDropdown(true)} className="lg:hidden p-2.5 rounded-xl bg-white/80 dark:bg-white/10 backdrop-blur-md shadow-sm text-gray-500 dark:text-gray-300 hover:text-indigo-600 transition-colors">
+                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+                            </button>
+                            <div className="hidden sm:block text-gray-900 dark:text-white">
+                                {header}
+                            </div>
                         </div>
 
-                        {/* Top Right Action Icons */}
-                        <div className="hidden md:flex items-center space-x-2">
-                            
-                            {/* --- 1. FITUR BARU: SIRINE KENDALA (ISSUE ALARM) --- */}
+                        <div className="flex items-center space-x-2.5">
+                            {/* SIRINE KENDALA */}
                             {user.role !== 'karyawan' && (
-                                <div className="relative mr-1" ref={issueRef}>
-                                    <button 
-                                        onClick={() => setIsIssueOpen(!isIssueOpen)}
-                                        className="p-2.5 rounded-full bg-white shadow-sm text-gray-400 hover:text-red-600 transition-colors relative focus:outline-none"
-                                    >
-                                        {global_issues_count > 0 && (
-                                            <span className="absolute top-0 right-0 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-red-500 rounded-full border-2 border-white animate-pulse">
-                                                {global_issues_count}
-                                            </span>
-                                        )}
-                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                        </svg>
+                                <div className="relative" ref={issueRef}>
+                                    <button onClick={() => setIsIssueOpen(!isIssueOpen)} className="p-2.5 rounded-full bg-white dark:bg-white/10 shadow-sm text-gray-400 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors relative focus:outline-none">
+                                        {global_issues_count > 0 && <span className="absolute top-0 right-0 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-red-500 rounded-full border-2 border-white dark:border-[#04121b] animate-pulse">{global_issues_count}</span>}
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                                     </button>
 
                                     {isIssueOpen && (
-                                        <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50 animate-fadeIn">
-                                            <div className="px-4 py-3 font-extrabold text-sm text-red-700 bg-red-50 border-b border-red-100 flex justify-between items-center">
-                                                <span>🚨 Pusat Kendala Proyek</span>
-                                            </div>
+                                        <div className="absolute right-0 mt-3 w-80 bg-white dark:bg-[#0a192f] rounded-2xl shadow-xl border border-gray-100 dark:border-white/10 overflow-hidden z-50 animate-fadeIn">
+                                            <div className="px-4 py-3 font-extrabold text-sm text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-b border-red-100 dark:border-red-900/30">🚨 Pusat Kendala Proyek</div>
                                             {global_issues_count > 0 ? (
-                                                <>
-                                                    <div className="max-h-72 overflow-y-auto p-2">
-                                                        {global_issues?.map(issue => (
-                                                            <div key={issue.id} className="block px-3 py-3 border-b border-gray-50 hover:bg-red-50/50 rounded-xl transition-colors mb-1 group">
-                                                                <h4 className="text-sm font-bold text-gray-800 line-clamp-1 group-hover:text-red-600">{issue.title}</h4>
-                                                                <p className="text-xs text-red-600 mt-1 line-clamp-2">"{issue.feedback || 'Tidak ada alasan'}"</p>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                    <div className="p-3 border-t border-gray-50 bg-gray-50">
-                                                        <Link 
-                                                            href={route('issues.index')} 
-                                                            className="block w-full py-2 text-xs font-extrabold text-center text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
-                                                        >
-                                                            Lihat Semua ({global_issues_count}) Kendala &rarr;
-                                                        </Link>
-                                                    </div>
-                                                </>
-                                            ) : (
-                                                <div className="px-4 py-8 text-xs font-medium text-center text-gray-400">
-                                                    Semua proyek berjalan lancar! 🎉
+                                                <><div className="max-h-72 overflow-y-auto p-2">
+                                                    {global_issues?.map(issue => (
+                                                        <div key={issue.id} className="block px-3 py-3 border-b border-gray-50 dark:border-white/5 hover:bg-red-50/50 dark:hover:bg-red-900/10 rounded-xl transition-colors mb-1 group"><h4 className="text-sm font-bold text-gray-800 dark:text-gray-200 line-clamp-1 group-hover:text-red-600 dark:group-hover:text-red-400">{issue.title}</h4><p className="text-xs text-red-600 dark:text-red-400 mt-1 line-clamp-2">"{issue.feedback || 'Tidak ada alasan'}"</p></div>
+                                                    ))}
                                                 </div>
-                                            )}
+                                                <div className="p-3 border-t border-gray-50 dark:border-white/5 bg-gray-50 dark:bg-[#0a192f]"><Link href={route('issues.index')} className="block w-full py-2 text-xs font-extrabold text-center text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-white/5 rounded-lg transition-colors">Lihat Semua ({global_issues_count}) Kendala &rarr;</Link></div></>
+                                            ) : (<div className="px-4 py-8 text-xs font-medium text-center text-gray-400 dark:text-gray-500">Semua proyek berjalan lancar! 🎉</div>)}
                                         </div>
                                     )}
                                 </div>
                             )}
-                            
-                            {/* --- 2. LONCENG NOTIFIKASI BAWAAN ANDA (TETAP AMAN) --- */}
-                            <div className="relative" ref={notifRef}>
-                                <button 
-                                    onClick={() => setIsNotifOpen(!isNotifOpen)}
-                                    className="p-2.5 rounded-full bg-white shadow-sm text-gray-400 hover:text-indigo-600 transition-colors relative focus:outline-none"
-                                >
-                                    {notifications?.length > 0 && (
-                                        <span className="absolute top-0 right-0 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-indigo-500 rounded-full border-2 border-white animate-pulse">
-                                            {notifications.length}
-                                        </span>
-                                    )}
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                    </svg>
-                                </button>
 
-                                {/* Panel Dropdown Lonceng */}
+                            {/* LONCENG NOTIFIKASI */}
+                            <div className="relative" ref={notifRef}>
+                                <button onClick={() => setIsNotifOpen(!isNotifOpen)} className="p-2.5 rounded-full bg-white dark:bg-white/10 shadow-sm text-gray-400 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors relative focus:outline-none">
+                                    {notifications?.length > 0 && <span className="absolute top-0 right-0 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-indigo-500 rounded-full border-2 border-white dark:border-[#04121b] animate-pulse">{notifications.length}</span>}
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                                </button>
                                 {isNotifOpen && (
-                                    <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50">
-                                        <div className="px-4 py-3 font-extrabold text-sm text-gray-800 bg-gray-50 border-b border-gray-100">
-                                            Notifikasi Terbaru
-                                        </div>
+                                    <div className="absolute right-0 mt-3 w-80 bg-white dark:bg-[#0a192f] rounded-2xl shadow-xl border border-gray-100 dark:border-white/10 overflow-hidden z-50">
+                                        <div className="px-4 py-3 font-extrabold text-sm text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-white/5 border-b border-gray-100 dark:border-white/10">Notifikasi Terbaru</div>
                                         {notifications?.length > 0 ? (
                                             <div className="max-h-72 overflow-y-auto">
                                                 {notifications.map(notif => (
-                                                    <div key={notif.id} className="block px-4 py-4 border-b border-gray-50 hover:bg-indigo-50/50 transition-colors">
-                                                        <div className="flex items-start gap-3">
-                                                            <div className={`w-2 h-2 mt-1.5 rounded-full shrink-0 ${notif.data.type === 'assigned' ? 'bg-blue-500' : 'bg-red-500'}`}></div>
-                                                            <div>
-                                                                <p className="text-xs font-bold text-gray-900 leading-tight">{notif.data.title || 'Pemberitahuan'}</p>
-                                                                <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">{notif.data.message}</p>
-                                                                <button 
-                                                                    onClick={(e) => { e.preventDefault(); markAsRead(notif.id); }} 
-                                                                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 mt-2 hover:underline focus:outline-none"
-                                                                >
-                                                                    Tandai sudah dibaca ✓
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
+                                                    <div key={notif.id} className="block px-4 py-4 border-b border-gray-50 dark:border-white/5 hover:bg-indigo-50/50 dark:hover:bg-white/5 transition-colors"><div className="flex items-start gap-3"><div className={`w-2 h-2 mt-1.5 rounded-full shrink-0 ${notif.data.type === 'assigned' ? 'bg-blue-500' : 'bg-red-500'}`}></div><div><p className="text-xs font-bold text-gray-900 dark:text-gray-200 leading-tight">{notif.data.title || 'Pemberitahuan'}</p><p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">{notif.data.message}</p><button onClick={(e) => { e.preventDefault(); markAsRead(notif.id); }} className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 mt-2 hover:underline focus:outline-none">Tandai sudah dibaca ✓</button></div></div></div>
                                                 ))}
                                             </div>
-                                        ) : (
-                                            <div className="px-4 py-8 text-xs font-medium text-center text-gray-400">
-                                                Tidak ada notifikasi baru.
-                                            </div>
-                                        )}
+                                        ) : (<div className="px-4 py-8 text-xs font-medium text-center text-gray-400 dark:text-gray-500">Tidak ada notifikasi baru.</div>)}
                                     </div>
                                 )}
                             </div>
-                            {/* -------------------------------------- */}
 
+                            {/* TEMA & LOGOUT */}
+                            <div className="flex items-center gap-2 pl-2 border-l border-gray-200 dark:border-white/10">
+                                <button onClick={toggleTheme} className="w-10 h-10 rounded-full flex items-center justify-center bg-white dark:bg-white/10 hover:bg-gray-100 dark:hover:bg-white/20 transition-all text-gray-600 dark:text-white shadow-sm outline-none">
+                                    {theme === 'dark' ? '☀️' : '🌙'}
+                                </button>
+                                <Link method="post" href={route('logout')} as="button" className="w-10 h-10 rounded-full flex items-center justify-center bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition-all font-bold shadow-sm outline-none">
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                                </Link>
+                            </div>
                         </div>
                     </div>
                 </header>
 
-                {/* Page Content Body */}
-                <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10 pb-20">
+                {/* PERBAIKAN Z-INDEX: Menghapus 'z-0' agar elemen children dengan z-index besar (seperti Drawer Laci Kendala) bisa muncul menimpa Header */}
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10 pb-24 relative hide-scrollbar">
                     {children}
-                </main>
-            </div>
+                </div>
+                
+            </main>
+
+            <ProjectChatbot project={project || { id: 0, name: 'Kantor Utama' }} user={user} />
         </div>
     );
 }
