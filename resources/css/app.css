@@ -1,3 +1,35 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* --- GLOBAL DARK MODE OVERRIDES (Sapu Jagat) --- */
+/* Memaksa elemen lama Laravel Breeze/Inertia untuk tunduk pada tema Dark Mode kita */
+.dark body {
+    @apply text-white;
+}
+
+.dark input, 
+.dark textarea, 
+.dark select {
+    @apply bg-white/10 border-white/20 text-white placeholder-gray-400;
+}
+
+/* Mengubah panel putih solid lama menjadi Liquid Glass Gelap */
+.dark .bg-white {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Mengubah warna teks abu-abu/hitam di komponen lama menjadi terang */
+.dark .text-gray-900, 
+.dark .text-gray-800, 
+.dark .text-gray-700, 
+.dark .text-gray-600 {
+    color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.dark .text-gray-500, 
+.dark .text-gray-400 {
+    color: rgba(255, 255, 255, 0.7) !important;
+}

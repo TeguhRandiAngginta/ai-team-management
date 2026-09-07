@@ -1,10 +1,7 @@
 import { useEffect } from 'react';
-import Checkbox from '@/Components/Checkbox';
-import InputError from '@/Components/InputError';
-import InputLabel from '@/Components/InputLabel';
-import PrimaryButton from '@/Components/PrimaryButton';
-import TextInput from '@/Components/TextInput';
 import { Head, Link, useForm } from '@inertiajs/react';
+import ApplicationLogo from '@/Components/ApplicationLogo';
+import InputError from '@/Components/InputError';
 
 export default function Login({ status, canResetPassword }) {
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -25,97 +22,116 @@ export default function Login({ status, canResetPassword }) {
     };
 
     return (
-        <div className="min-h-screen bg-[#F4F7FF] flex items-center justify-center p-4 sm:p-8">
-            <Head title="Log in" />
+        <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden font-sans">
+            <Head title="Log in - Office Management" />
 
-            <div className="w-full max-w-5xl bg-white rounded-[2rem] shadow-xl overflow-hidden flex flex-col md:flex-row min-h-[600px]">
+            {/* --- BACKGROUND IMAGE & OVERLAY (Latar Belakang Full) --- */}
+            <div className="absolute inset-0 z-0">
+                <img 
+                    src="https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2564&auto=format&fit=crop" 
+                    alt="Office Architecture" 
+                    className="object-cover w-full h-full scale-105 animate-[pulse_30s_ease-in-out_infinite_alternate]"
+                />
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/60 to-[#04121b]/90 dark:from-[#04121b]/90 dark:to-[#04121b]/95 backdrop-blur-[2px] transition-colors duration-1000"></div>
+            </div>
+
+            {/* --- LIQUID GLASS PANEL (Di Tengah Layar) --- */}
+            <div className="relative z-10 w-full max-w-md p-8 sm:p-10 bg-white/70 dark:bg-white/10 backdrop-blur-[26px] saturate-[118%] border border-white/50 dark:border-white/10 rounded-[2.5rem] shadow-[0_8px_32px_rgba(0,0,0,0.15)] overflow-hidden group">
                 
-                {/* Bagian Kiri - Ilustrasi & Branding */}
-                <div className="hidden md:flex md:w-1/2 bg-indigo-50 p-12 flex-col justify-center items-center relative overflow-hidden">
-                    {/* Ornamen Dekoratif */}
-                    <div className="absolute top-[-10%] left-[-10%] w-72 h-72 bg-indigo-200 rounded-full mix-blend-multiply filter blur-2xl opacity-70"></div>
-                    <div className="absolute bottom-[-10%] right-[-10%] w-72 h-72 bg-blue-200 rounded-full mix-blend-multiply filter blur-2xl opacity-70"></div>
-                    
-                    <div className="z-10 text-center">
-                        <h2 className="text-4xl font-extrabold text-indigo-900 mb-4 tracking-tight">Persevera</h2>
-                        <p className="text-indigo-600 font-medium mb-10">Kelola ruang kerja dan tim Anda dengan sistem yang terintegrasi cerdas.</p>
-                        
-                        {/* Placeholder Ilustrasi */}
-                        <div className="w-full max-w-xs aspect-video bg-white/50 backdrop-blur-sm rounded-2xl border border-white shadow-sm flex items-center justify-center text-indigo-300 font-semibold">
-                            [ Area Ilustrasi / Gambar ]
-                        </div>
-                    </div>
+                {/* Efek Pantulan Cahaya Kaca (Saat Kursor Mengambang) */}
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-1000 overflow-hidden rounded-[2.5rem]">
+                    <div className="w-[150%] h-full bg-gradient-to-r from-transparent via-white/30 dark:via-white/10 to-transparent -skew-x-12 translate-x-[-150%] group-hover:animate-[sheen_1.5s_ease-in-out]"></div>
                 </div>
 
-                {/* Bagian Kanan - Form Login */}
-                <div className="w-full md:w-1/2 p-8 sm:p-12 lg:p-16 flex flex-col justify-center bg-white relative z-10">
-                    <div className="mb-10 text-center md:text-left">
-                        <h3 className="text-3xl font-bold text-gray-900">Login</h3>
-                        <p className="text-gray-500 mt-2 text-sm">Selamat datang kembali! Silakan masukkan detail Anda.</p>
+                {/* LOGO & BRANDING */}
+                <div className="flex flex-col items-center mb-10 text-center">
+                    <div className="w-16 h-16 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-500/30 mb-5 relative group-hover:scale-110 transition-transform duration-500">
+                        <ApplicationLogo className="w-10 h-10 fill-current drop-shadow-md" />
+                        <div className="absolute inset-0 rounded-2xl border-2 border-white/20"></div>
+                    </div>
+                    <h1 className="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-800 to-purple-800 dark:from-white dark:to-indigo-200">
+                        Office Management
+                    </h1>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-300 mt-2">Masuk ke ruang kerja kolaboratif Anda.</p>
+                </div>
+
+                {status && <div className="mb-4 font-bold text-sm text-green-600 bg-green-50 p-3 rounded-xl text-center">{status}</div>}
+
+                {/* FORM LOGIN */}
+                <form onSubmit={submit} className="space-y-5">
+                    <div>
+                        <label className="block text-xs font-extrabold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-2 ml-1">
+                            Alamat Email
+                        </label>
+                        <input
+                            id="email"
+                            type="email"
+                            name="email"
+                            value={data.email}
+                            className="w-full rounded-2xl border border-white/50 dark:border-white/10 bg-white/50 dark:bg-black/20 text-gray-900 dark:text-white px-5 py-3.5 focus:bg-white dark:focus:bg-black/40 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none backdrop-blur-md"
+                            autoComplete="username"
+                            autoFocus
+                            onChange={(e) => setData('email', e.target.value)}
+                            placeholder="nama@perusahaan.com"
+                        />
+                        <InputError message={errors.email} className="mt-2 ml-1" />
                     </div>
 
-                    {status && <div className="mb-4 font-medium text-sm text-green-600">{status}</div>}
-
-                    <form onSubmit={submit} className="space-y-6">
-                        <div>
-                            <TextInput
-                                id="email"
-                                type="email"
-                                name="email"
-                                value={data.email}
-                                className="mt-1 block w-full px-4 py-3 rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                                autoComplete="username"
-                                isFocused={true}
-                                onChange={(e) => setData('email', e.target.value)}
-                                placeholder="Email or username"
-                            />
-                            <InputError message={errors.email} className="mt-2" />
-                        </div>
-
-                        <div>
-                            <TextInput
-                                id="password"
-                                type="password"
-                                name="password"
-                                value={data.password}
-                                className="mt-1 block w-full px-4 py-3 rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                                autoComplete="current-password"
-                                onChange={(e) => setData('password', e.target.value)}
-                                placeholder="Password"
-                            />
-                            <InputError message={errors.password} className="mt-2" />
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                            <label className="flex items-center cursor-pointer">
-                                <Checkbox
-                                    name="remember"
-                                    checked={data.remember}
-                                    onChange={(e) => setData('remember', e.target.checked)}
-                                    className="rounded border-gray-300 text-indigo-400 shadow-sm focus:ring-indigo-400"
-                                />
-                                <span className="ml-2 text-sm text-gray-500">Remember me</span>
+                    <div>
+                        <div className="flex justify-between items-end mb-2 ml-1 mr-1">
+                            <label className="block text-xs font-extrabold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                                Kata Sandi
                             </label>
-
                             {canResetPassword && (
-                                <Link
-                                    href={route('password.request')}
-                                    className="text-sm font-medium text-gray-400 hover:text-indigo-500 transition-colors"
-                                >
-                                    Forgot password?
+                                <Link href={route('password.request')} className="text-[11px] font-bold text-indigo-700 dark:text-indigo-300 hover:text-indigo-900 dark:hover:text-white hover:underline transition-colors">
+                                    Lupa sandi?
                                 </Link>
                             )}
                         </div>
+                        <input
+                            id="password"
+                            type="password"
+                            name="password"
+                            value={data.password}
+                            className="w-full rounded-2xl border border-white/50 dark:border-white/10 bg-white/50 dark:bg-black/20 text-gray-900 dark:text-white px-5 py-3.5 focus:bg-white dark:focus:bg-black/40 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none backdrop-blur-md"
+                            autoComplete="current-password"
+                            onChange={(e) => setData('password', e.target.value)}
+                            placeholder="••••••••"
+                        />
+                        <InputError message={errors.password} className="mt-2 ml-1" />
+                    </div>
 
-                        <button
-                            type="submit"
-                            disabled={processing}
-                            className="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-[#55c5d1] hover:bg-[#43aab5] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#55c5d1] transition-all duration-200 disabled:opacity-50"
-                        >
-                            Log in
-                        </button>
-                    </form>
-                </div>
+                    <div className="flex items-center ml-1 mt-2">
+                        <label className="flex items-center cursor-pointer group">
+                            <input
+                                type="checkbox"
+                                name="remember"
+                                checked={data.remember}
+                                onChange={(e) => setData('remember', e.target.checked)}
+                                className="w-5 h-5 rounded border-gray-300 dark:border-white/20 text-indigo-600 focus:ring-indigo-500 dark:bg-black/20 dark:checked:bg-indigo-500 transition-all cursor-pointer"
+                            />
+                            <span className="ml-3 text-sm font-semibold text-gray-600 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
+                                Ingat Saya
+                            </span>
+                        </label>
+                    </div>
+
+                    <button
+                        className={`mt-8 w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold text-sm uppercase tracking-widest rounded-2xl shadow-[0_8px_20px_rgba(79,70,229,0.3)] hover:shadow-[0_10px_25px_rgba(79,70,229,0.5)] hover:-translate-y-1 transition-all duration-300 flex items-center justify-center outline-none ${processing ? 'opacity-70 cursor-wait' : ''}`}
+                        disabled={processing}
+                    >
+                        {processing ? (
+                            <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                        ) : (
+                            'Masuk Sistem'
+                        )}
+                    </button>
+                </form>
+            </div>
+            
+            {/* Dekorasi Footer */}
+            <div className="absolute bottom-6 z-10 text-[10px] font-bold text-white/50 tracking-widest uppercase">
+                &copy; {new Date().getFullYear()} Office Management System
             </div>
         </div>
     );
