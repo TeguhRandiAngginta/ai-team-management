@@ -36,6 +36,8 @@ class TaskNotification extends Notification
             'title' => $this->task->title,
             'message' => $this->message,
             'type' => $this->type,
+            'project_id' => $this->task->project_id,
+            'workspace_id' => $this->task->project->workspace_id,
         ];
     }
 }
