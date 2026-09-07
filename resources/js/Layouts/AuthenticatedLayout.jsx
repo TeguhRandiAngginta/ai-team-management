@@ -27,7 +27,24 @@ export default function AuthenticatedLayout({ header, children }) {
 
     const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
     const isActive = (path) => url.startsWith(path);
+    
+    // Fungsi lama untuk tombol centang manual
     const markAsRead = (id) => router.post(route('notifications.read', id), {}, { preserveScroll: true });
+
+    // FUNGSI BARU: Klik notifikasi langsung pindah ke Kanban
+    const handleNotificationClick = (notif) => {
+        // Tandai sudah dibaca tanpa mereload halaman
+        window.axios.post(route('notifications.read', notif.id)).catch(console.error);
+        setIsNotifOpen(false);
+        
+        // Cek jika data workspace dan project tersedia, lalu pindah halaman
+        if (notif.data.workspace_id && notif.data.project_id) {
+            router.get(route('workspace.projects.tasks', {
+                workspace: notif.data.workspace_id,
+                project: notif.data.project_id
+            }));
+        }
+    };
 
     useEffect(() => {
         function handleClickOutside(event) {
@@ -117,11 +134,10 @@ export default function AuthenticatedLayout({ header, children }) {
                 </div>
             </nav>
 
-            {/* PERBAIKAN Z-INDEX: Menghapus 'z-10' dari main agar overlay Drawer tidak terkurung */}
             <main className="flex-1 flex flex-col h-full min-w-0 relative transition-all duration-500">
                 
                 {/* Header Atas */}
-                <header className="shrink-0 pt-4 px-4 sm:px-6 lg:px-10 relative z-30">
+                <header className="shrink-0 pt-4 px-4 sm:px-6 lg:px-10 relative z-50">
                     <div className="flex items-center justify-between h-16">
                         
                         <div className="flex items-center gap-4">
@@ -169,8 +185,36 @@ export default function AuthenticatedLayout({ header, children }) {
                                         <div className="px-4 py-3 font-extrabold text-sm text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-white/5 border-b border-gray-100 dark:border-white/10">Notifikasi Terbaru</div>
                                         {notifications?.length > 0 ? (
                                             <div className="max-h-72 overflow-y-auto">
+                                                {/* INI BAGIAN YANG DIUBAH AGAR BISA DIKLIK KESELURUHANNYA */}
                                                 {notifications.map(notif => (
-                                                    <div key={notif.id} className="block px-4 py-4 border-b border-gray-50 dark:border-white/5 hover:bg-indigo-50/50 dark:hover:bg-white/5 transition-colors"><div className="flex items-start gap-3"><div className={`w-2 h-2 mt-1.5 rounded-full shrink-0 ${notif.data.type === 'assigned' ? 'bg-blue-500' : 'bg-red-500'}`}></div><div><p className="text-xs font-bold text-gray-900 dark:text-gray-200 leading-tight">{notif.data.title || 'Pemberitahuan'}</p><p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">{notif.data.message}</p><button onClick={(e) => { e.preventDefault(); markAsRead(notif.id); }} className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 mt-2 hover:underline focus:outline-none">Tandai sudah dibaca ✓</button></div></div></div>
+                                                    <div 
+                                                        key={notif.id} 
+                                                        onClick={() => handleNotificationClick(notif)}
+                                                        className="block px-4 py-4 border-b border-gray-50 dark:border-white/5 hover:bg-indigo-50/50 dark:hover:bg-white/5 transition-colors cursor-pointer group"
+                                                    >
+                                                        <div className="flex items-start gap-3">
+                                                            <div className={`w-2 h-2 mt-1.5 rounded-full shrink-0 shadow-sm ${notif.data.type === 'assigned' ? 'bg-blue-500' : 'bg-red-500'}`}></div>
+                                                            <div>
+                                                                <p className="text-xs font-bold text-gray-900 dark:text-gray-200 leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                                                                    {notif.data.title || 'Pemberitahuan'}
+                                                                </p>
+                                                                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
+                                                                    {notif.data.message}
+                                                                </p>
+                                                                <div className="flex items-center justify-between mt-2">
+                                                                    <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                        Lihat Tugas &rarr;
+                                                                    </p>
+                                                                    <button 
+                                                                        onClick={(e) => { e.stopPropagation(); markAsRead(notif.id); }} 
+                                                                        className="text-[10px] font-bold text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 focus:outline-none"
+                                                                    >
+                                                                        Tandai dibaca
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 ))}
                                             </div>
                                         ) : (<div className="px-4 py-8 text-xs font-medium text-center text-gray-400 dark:text-gray-500">Tidak ada notifikasi baru.</div>)}
@@ -191,7 +235,6 @@ export default function AuthenticatedLayout({ header, children }) {
                     </div>
                 </header>
 
-                {/* PERBAIKAN Z-INDEX: Menghapus 'z-0' agar elemen children dengan z-index besar (seperti Drawer Laci Kendala) bisa muncul menimpa Header */}
                 <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10 pb-24 relative hide-scrollbar">
                     {children}
                 </div>

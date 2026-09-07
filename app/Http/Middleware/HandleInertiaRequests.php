@@ -4,7 +4,7 @@ namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Inertia\Middleware;
-use App\Models\Task; // <-- PASTIKAN BARIS INI ADA DI ATAS
+use App\Models\Task; 
 
 class HandleInertiaRequests extends Middleware
 {
@@ -21,11 +21,9 @@ class HandleInertiaRequests extends Middleware
         $globalIssues = [];
         $issuesCount = 0;
 
-        // SISTEM HIBRIDA: Hanya Admin/Manajer yang mendapatkan data Issue
         if ($user && $user->role !== 'karyawan') {
             $issuesCount = Task::where('status', 'postponed')->count();
             
-            // Ambil 5 issue terbaru untuk ditampilkan di Laci Header
             $globalIssues = Task::where('status', 'postponed')
                 ->select('id', 'title', 'project_id', 'feedback', 'updated_at')
                 ->latest('updated_at')
@@ -36,8 +34,8 @@ class HandleInertiaRequests extends Middleware
         return array_merge(parent::share($request), [
             'auth' => [
                 'user' => $user,
+                'notifications' => $user ? $user->unreadNotifications()->take(5)->get() : [],
             ],
-            // Kirim data issue secara global ke React
             'global_issues' => $globalIssues,
             'global_issues_count' => $issuesCount,
         ]);

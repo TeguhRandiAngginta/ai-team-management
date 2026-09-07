@@ -209,21 +209,25 @@ class AIController extends Controller
         $description = $request->input('description', 'Tidak ada deskripsi');
         $projectId = $request->input('project_id');
 
-        $project = \App\Models\Project::with('workspace.members')->find($projectId);
+        $project = \App\Models\Project::find($projectId);
         
         if (!$project) {
-            return response()->json(['recommendation' => 'Data proyek tidak ditemukan.']);
+            return response()->json(['reply' => 'Data proyek tidak ditemukan.']);
         }
         
-        $members = $project->workspace->members;
+        // 1. Tarik data member menggunakan relasi yang aman (Sudah Terbukti Berhasil)
+        $members = \App\Models\User::whereHas('workspaceMemberships', function($q) use ($project) {
+            $q->where('workspace_id', $project->workspace_id)->where('is_active', true);
+        })->get();
+
         if ($members->isEmpty()) {
-            return response()->json(['recommendation' => 'Belum ada anggota tim di workspace ini.']);
+            return response()->json(['reply' => 'Belum ada anggota tim di workspace ini.']);
         }
 
-        // 1. Kumpulkan data beban kerja nyata (Tugas Aktif) dari database
+        // 2. Kumpulkan data beban kerja nyata (Tugas Aktif) dari database
         $activeTasks = \App\Models\Task::with('assignees')
             ->where('project_id', $projectId)
-            ->whereNotIn('status', ['done', 'archived'])
+            ->whereNotIn('status', ['done', 'archived', 'postponed'])
             ->get();
 
         $workloadData = [];
@@ -238,24 +242,24 @@ class AIController extends Controller
             ];
         }
 
-        // 2. Siapkan Data Konteks untuk AI
+        // 3. Siapkan Data Konteks untuk AI
         $contextData = "Tugas: $title\nDeskripsi: $description\n\nKandidat Tim & Beban Kerja Aktif (Jumlah Tugas):\n" . json_encode($workloadData);
 
-        // 3. Prompt Khusus Rekomendasi SDM (Versi Diperbarui)
-        // 3. Prompt Khusus Rekomendasi SDM (Versi Dipertegas)
+        // 4. Prompt Khusus Rekomendasi SDM (Versi Dipertegas)
         $systemPrompt = "Anda adalah Asisten Manajer Proyek yang cerdas. Tugas Anda merekomendasikan 1 orang yang PALING TEPAT dari data yang diberikan.
         Pilih nama dengan 'tugas_aktif' paling sedikit.
         
         ATURAN MUTLAK: 
-        1. Jika semua orang memiliki beban kerja sama (misal 0 tugas), langsung pilih SATU NAMA ASLI secara acak. JANGAN menjelaskan logika pemilihan Anda atau menyebutkan bahwa beban kerja mereka sama.
-        2. Tulis langsung nama orangnya. DILARANG KERAS mencetak teks '[Nama Orang]'.
+        1. Jika semua orang memiliki beban kerja sama (misal 0 tugas), langsung pilih SATU NAMA ASLI secara acak dari data JSON.
+        2. Tulis langsung nama orangnya. DILARANG KERAS mengarang/menciptakan nama. WAJIB memilih dari daftar JSON yang diberikan.
         
         Gunakan format jawaban ini persis:
         ✨ Rekomendasi: Tulis Nama Asli Anggota Tim Di Sini
         💡 Alasan: Tulis alasan profesional di sini (Misal: karena jadwalnya saat ini sedang sepenuhnya luang dan siap untuk langsung mengeksekusi tugas ini).";
 
         try {
-            $response = Http::withHeaders([
+            // Gunakan path lengkap (\Illuminate\Support\Facades\...) agar terhindar dari Error 500
+            $response = \Illuminate\Support\Facades\Http::withHeaders([
                 'Authorization' => 'Bearer ' . env('MINIMAX_API_KEY'),
                 'Content-Type'  => 'application/json',
             ])
@@ -267,22 +271,27 @@ class AIController extends Controller
                     ['role' => 'system', 'content' => $systemPrompt],
                     ['role' => 'user', 'content' => $contextData],
                 ],
-                // NAIKKAN SUHU SEDIKIT AGAR BAHASANYA LEBIH LUWES & NATURAL
-                'temperature' => 0.4, 
+                // SUHU DIRENDAHKAN KE 0.1: Agar AI tidak berhalusinasi mengarang nama
+                'temperature' => 0.1, 
             ]);
 
             if ($response->successful()) {
                 $result = $response->json();
                 $aiText = $result['choices'][0]['message']['content'] ?? 'AI gagal memberikan rekomendasi.';
-                return response()->json(['recommendation' => $aiText]);
+                
+                // Return multi-key agar pasti ditangkap oleh frontend
+                return response()->json([
+                    'reply' => $aiText,
+                    'recommendation' => $aiText 
+                ]);
             }
 
-            Log::error('MiniMax Assignee Error: ' . $response->body());
-            return response()->json(['recommendation' => 'Layanan AI sedang sibuk.'], 500);
+            \Illuminate\Support\Facades\Log::error('MiniMax Assignee Error: ' . $response->body());
+            return response()->json(['reply' => 'Layanan AI sedang sibuk.', 'recommendation' => 'Layanan AI sedang sibuk.'], 500);
 
         } catch (\Exception $e) {
-            Log::error('MiniMax Connection Exception: ' . $e->getMessage());
-            return response()->json(['recommendation' => 'Koneksi ke server AI terputus.'], 500);
+            \Illuminate\Support\Facades\Log::error('MiniMax Connection Exception: ' . $e->getMessage());
+            return response()->json(['reply' => 'Koneksi ke server AI terputus.', 'recommendation' => 'Koneksi ke server AI terputus.'], 500);
         }
     }
 

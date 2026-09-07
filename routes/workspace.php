@@ -10,7 +10,6 @@ use Inertia\Inertia;
 Route::middleware(['auth', 'verified'])->group(function () {
 
     // 🏢 Main Workspace (Menu Baru)
-    // PERBAIKAN: Kita memanggil database di sini agar halaman menampilkan daftar Workspace
     Route::get('/workspaces', function () {
         $workspaces = auth()->user()
             ->workspaceMemberships()
@@ -24,22 +23,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ]); 
     })->name('workspace.index');
 
-    // 📅 Kalender Global (Menu Baru)
-    // PERBAIKAN: Kita mengirim array 'tasks' (sementara kosong) agar kalender tidak error
-    Route::get('/calendar', function () {
-        return Inertia::render('Calendar/Index', [
-            'tasks' => []
-        ]); 
-    })->name('calendar.index');
-
     // Modul Spesifik dalam Workspace
     Route::middleware('workspace.role')->prefix('workspaces/{workspace}')->group(function () {
         
+        // DI SINI LETAK PERUBAHANNYA: 
+        // Mengubah rute '/' (yang bernama workspace.dashboard) menjadi redirect ke workspace.projects
         Route::get('/', function (Workspace $workspace) {
-            $workspace->load(['projects.tasks' => function($query) { $query->with(['assignees', 'author']); }]);
-            return Inertia::render('Workspace/Dashboard', [
-                'workspace' => $workspace, 'allTasks' => $workspace->projects->flatMap->tasks
-            ]);
+            return redirect()->route('workspace.projects', ['workspace' => $workspace->id]);
         })->name('workspace.dashboard');
 
         Route::get('/projects/{project}/files', [WorkspaceProjectController::class, 'files'])->name('workspace.projects.files');
